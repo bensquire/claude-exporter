@@ -26,7 +26,7 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 This extension is built around one principle: **your conversations never leave your browser**.
 
 - ✅ **Zero network calls outside `claude.ai`.** No analytics, no telemetry, no error reporting, no remote code.
-- ✅ **No persistent storage.** Nothing is written to disk other than the files *you* choose to export.
+- ✅ **No persistent storage.** Nothing is written to disk other than the files _you_ choose to export.
 - ✅ **Minimal permissions** (see [below](#permissions)).
 - ✅ **No build-time obfuscation.** Source maps are shipped with the build so you can step through the exact code that runs.
 - ✅ **Reproducible builds.** `npm ci && npm run build` from any tagged commit produces byte-identical output to the Chrome Web Store release.
@@ -34,10 +34,10 @@ This extension is built around one principle: **your conversations never leave y
 
 ### Permissions
 
-| Permission | Why we need it |
-|---|---|
-| `host_permissions: https://claude.ai/*` | Required to inject the content script into your claude.ai tab and call the claude.ai JSON API from that script using your existing session cookies. The extension touches no other origin. |
-| `storage` | Used only via `chrome.storage.session` (in-memory, cleared when the browser closes) to hand the rendered print-ready HTML from the popup to the print-preview tab. We never write to `chrome.storage.local` or `sync`, so nothing persists across sessions and nothing syncs to your Google account. |
+| Permission                              | Why we need it                                                                                                                                                                                                                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host_permissions: https://claude.ai/*` | Required to inject the content script into your claude.ai tab and call the claude.ai JSON API from that script using your existing session cookies. The extension touches no other origin.                                                                                                           |
+| `storage`                               | Used only via `chrome.storage.session` (in-memory, cleared when the browser closes) to hand the rendered print-ready HTML from the popup to the print-preview tab. We never write to `chrome.storage.local` or `sync`, so nothing persists across sessions and nothing syncs to your Google account. |
 
 Permissions we deliberately do **not** request:
 
@@ -75,8 +75,8 @@ Coming soon.
 1. Open any conversation on [claude.ai](https://claude.ai).
 2. Click the **Claude Exporter** icon in your toolbar.
 3. Pick an action:
-   - **Download**: Markdown · HTML · PDF
-   - **Copy to clipboard**: Copy as Markdown · Copy as HTML
+    - **Download**: Markdown · HTML · PDF
+    - **Copy to clipboard**: Copy as Markdown · Copy as HTML
 
 For PDF: a new tab opens with the print preview and the system print dialog automatically appears. Choose **Save as PDF** as the destination. Chrome remembers your last destination, so subsequent prints are effectively one click.
 

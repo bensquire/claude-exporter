@@ -39,10 +39,7 @@ const exportAs = async (format: ExportFormat): Promise<void> => {
 
 /** sendMessage to the content script, falling back to a tab reload if the
  *  content script isn't registered yet (tab opened before the extension loaded). */
-const sendWithInject = async (
-    tabId: number,
-    req: Request,
-): Promise<Response | undefined> => {
+const sendWithInject = async (tabId: number, req: Request): Promise<Response | undefined> => {
     try {
         return (await chrome.tabs.sendMessage(tabId, req)) as Response | undefined;
     } catch (err) {

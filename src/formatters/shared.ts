@@ -91,8 +91,7 @@ export const renderMessage = (msg: ChatMessage, options: ExportOptions): Rendere
     return blocks.flatMap((b) => renderBlock(b, options));
 };
 
-const isRecord = (x: unknown): x is Record<string, unknown> =>
-    typeof x === 'object' && x !== null;
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 
 const safeStringify = (x: unknown): string => {
     try {
