@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Claude Exporter</title>
+        <style>
+            body {
+                font:
+                    14px/1.4 -apple-system,
+                    BlinkMacSystemFont,
+                    sans-serif;
+                margin: 0;
+                padding: 12px;
+                width: 220px;
+            }
+            h1 {
+                font-size: 13px;
+                margin: 0 0 8px;
+                color: #555;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            button {
+                display: block;
+                width: 100%;
+                padding: 8px 10px;
+                margin: 6px 0;
+                border: 1px solid #d4d4d8;
+                border-radius: 6px;
+                background: #fff;
+                font: inherit;
+                cursor: pointer;
+                text-align: left;
+            }
+            button:hover {
+                background: #f4f4f6;
+            }
+            button:focus-visible {
+                outline: 2px solid #6366f1;
+                outline-offset: 1px;
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            #status {
+                margin-top: 8px;
+                font-size: 12px;
+                color: #666;
+                min-height: 1em;
+            }
+            #status.error {
+                color: #dc2626;
+            }
+            .group-label {
+                font-size: 11px;
+                color: #888;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin: 10px 0 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Export conversation</h1>
+        <div class="group-label">Download</div>
+        <button data-format="markdown">Markdown (.md)</button>
+        <button data-format="html">HTML (.html)</button>
+        <button data-format="pdf">PDF (via print)</button>
+        <div class="group-label">Copy to clipboard</div>
+        <button data-format="copy-markdown">Copy as Markdown</button>
+        <button data-format="copy-html">Copy as HTML</button>
+        <div id="status" role="status" aria-live="polite"></div>
+        <script type="module" src="./popup.ts"></script>
+    </body>
+</html>

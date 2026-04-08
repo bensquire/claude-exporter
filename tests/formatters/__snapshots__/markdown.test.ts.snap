@@ -1,0 +1,26 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`toMarkdown > produces stable output (snapshot) 1`] = `
+"# Hello world
+
+_Created: 2026-04-01T10:00:00Z_
+
+## Human
+
+Hello, Claude!
+
+---
+
+## Assistant
+
+<details><summary>Thinking</summary>
+
+Greeting the user.
+
+</details>
+
+Hi there! How can I help?
+
+---
+"
+`;
