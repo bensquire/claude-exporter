@@ -13,6 +13,10 @@ export const toMarkdown = (t: Transcript): string => {
     for (const turn of t.turns) {
         parts.push(turn.role === 'human' ? '## Human' : '## Assistant');
         parts.push('');
+        if (turn.createdAt) {
+            parts.push(`_${formatTime(turn.createdAt)}_`);
+            parts.push('');
+        }
         for (const block of turn.blocks) {
             parts.push(renderBlock(block));
             parts.push('');

@@ -53,6 +53,10 @@ describe('Markdown rendering', () => {
         expect(md).toContain('_Created: 2026-04-01 10:00 UTC_');
     });
 
+    it('shows turn times', () => {
+        expect(md).toContain('## Human\n\n_2026-04-01 10:05 UTC_\n');
+    });
+
     it('renders image references and summarized thinking', () => {
         expect(md).toContain('_[Image: diagram <1>.png]_');
         expect(md).toContain('<summary>Thinking (summary)</summary>');

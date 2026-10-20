@@ -20,6 +20,7 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 - **Branched conversations** — only the active branch (the path you're reading) is exported, not regenerated dead-ends.
 - **Artifacts** — exported in full, with later edits applied, so each one shows the version Claude produced at that point (labelled v2, v3, …).
 - **Attachments** — text claude.ai extracted from pasted or uploaded documents is included (collapsed); images and files are listed by name.
+- **Timestamps** — each turn shows when it was sent (UTC) in Markdown, HTML and PDF.
 - **Thinking** — Claude's thinking, or its summary where claude.ai only kept a summary, in collapsible sections.
 - **Multiple organizations** — works whether the conversation lives in your personal account or a Team/Enterprise org.
 - **Code-fence safe** — code blocks containing backticks get a longer fence, so they don't break out.
