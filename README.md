@@ -9,6 +9,10 @@
 
 Everything runs locally in your browser. No backend, no telemetry, no third-party services. Audit the entire codebase in an afternoon.
 
+<p align="center">
+  <img src="docs/screenshot.png" width="800" alt="The Claude Exporter popup open on a claude.ai conversation, listing the download and copy options">
+</p>
+
 ---
 
 ## Features
