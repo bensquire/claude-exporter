@@ -9,7 +9,9 @@ import {
     imageLabel,
     roleLabel,
     thinkingLabel,
+    toolCallLabel,
     toolResultLabel,
+    unknownBlockLabel,
 } from './shared';
 
 // `html: false` escapes raw HTML and markdown-it drops javascript:/data: links.
@@ -76,7 +78,7 @@ const renderBlock = (block: Block): string => {
         case 'tool_use':
             return labelledCode(
                 'tool-use',
-                `Tool call: <code>${escapeHtml(block.name)}</code>`,
+                toolCallLabel(`<code>${escapeHtml(block.name)}</code>`),
                 safeStringify(block.input),
             );
         case 'tool_result':
@@ -88,7 +90,7 @@ const renderBlock = (block: Block): string => {
         case 'unknown':
             return labelledCode(
                 'unknown',
-                `Unknown block (${escapeHtml(block.type)})`,
+                unknownBlockLabel(escapeHtml(block.type)),
                 safeStringify(block.raw),
             );
     }

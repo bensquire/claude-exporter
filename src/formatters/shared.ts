@@ -1,13 +1,23 @@
-import type { ArtifactBlock, Role } from '../transcript/types';
+import type { ArtifactBlock, Attachment, Role } from '../transcript/types';
 
 export const roleLabel = (role: Role): string => (role === 'human' ? 'Human' : 'Assistant');
 
 export const imageLabel = (name: string): string => `[Image: ${name}]`;
 
+/** `name` is inserted as given, so formatters can wrap it in code markup first. */
+export const toolCallLabel = (name: string): string => `Tool call: ${name}`;
+
 export const toolResultLabel = (isError: boolean): string =>
     isError ? 'Tool error' : 'Tool result';
 
+/** `type` is inserted as given, like toolCallLabel's `name`. */
+export const unknownBlockLabel = (type: string): string => `Unknown block (${type})`;
+
 export const formatSize = (bytes: number): string => `(${bytes} bytes)`;
+
+/** `name (12 bytes)`, or just the name when the size is unknown. */
+export const attachmentLabel = (a: Attachment): string =>
+    a.size === undefined ? a.name : `${a.name} ${formatSize(a.size)}`;
 
 export const thinkingLabel = (summarized: boolean): string =>
     summarized ? 'Thinking (summary)' : 'Thinking';

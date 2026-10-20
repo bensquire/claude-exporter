@@ -2,13 +2,15 @@ import type { Block, Transcript, Turn } from '../transcript/types';
 import { safeStringify } from '../util';
 import {
     artifactLabel,
-    formatSize,
+    attachmentLabel,
     formatTime,
     imageLabel,
     pickFence,
     roleLabel,
     thinkingLabel,
+    toolCallLabel,
     toolResultLabel,
+    unknownBlockLabel,
 } from './shared';
 
 export const toMarkdown = (t: Transcript): string => {
@@ -62,11 +64,11 @@ const renderBlock = (block: Block): string => {
             return `${header}${codeBlock(block.content, block.language)}`;
         }
         case 'tool_use':
-            return `**Tool call: \`${block.name}\`**\n\n${codeBlock(safeStringify(block.input), 'json')}`;
+            return `**${toolCallLabel(`\`${block.name}\``)}**\n\n${codeBlock(safeStringify(block.input), 'json')}`;
         case 'tool_result':
             return `**${toolResultLabel(block.isError)}**\n\n${codeBlock(block.text)}`;
         case 'unknown':
-            return `**Unknown block (\`${block.type}\`)**\n\n${codeBlock(safeStringify(block.raw), 'json')}`;
+            return `**${unknownBlockLabel(`\`${block.type}\``)}**\n\n${codeBlock(safeStringify(block.raw), 'json')}`;
     }
 };
 
@@ -79,8 +81,7 @@ const renderAttachments = (turn: Turn): string | null => {
     if (turn.attachments.length === 0) return null;
     const lines = ['**Attachments:**'];
     for (const a of turn.attachments) {
-        const size = a.size === undefined ? '' : ` ${formatSize(a.size)}`;
-        lines.push(`- ${a.name}${size}`);
+        lines.push(`- ${attachmentLabel(a)}`);
     }
     for (const a of turn.attachments) {
         if (a.extractedText === undefined) continue;

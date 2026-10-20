@@ -1,39 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { toHtml } from '../../src/formatters/html';
 import { toMarkdown } from '../../src/formatters/markdown';
-import type { Transcript } from '../../src/transcript/types';
+import { renderingTranscript } from '../fixtures/transcript';
 
-const transcript: Transcript = {
-    id: 't',
-    title: 'Rendering',
-    createdAt: '2026-04-01T10:00:00Z',
-    turns: [
-        {
-            id: 'h',
-            role: 'human',
-            createdAt: '2026-04-01T10:05:30Z',
-            blocks: [
-                { kind: 'image', fileId: 'f', name: 'diagram <1>.png' },
-                { kind: 'text', text: 'What is this?', format: 'plain' },
-            ],
-            attachments: [
-                {
-                    name: 'notes <draft>.txt',
-                    size: 12,
-                    source: 'upload',
-                    extractedText: 'line with ``` and <b>tags</b>',
-                },
-                { name: 'plain.pdf', source: 'file' },
-            ],
-        },
-        {
-            id: 'a',
-            role: 'assistant',
-            blocks: [{ kind: 'thinking', text: 'Summary of thoughts', summarized: true }],
-            attachments: [],
-        },
-    ],
-};
+const transcript = renderingTranscript;
 
 describe('Markdown rendering', () => {
     const md = toMarkdown(transcript);

@@ -1,5 +1,41 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`toText > snapshots hand-built transcript 1`] = `
+"Rendering
+Created: 2026-04-01 10:00 UTC
+
+----------------------------------------
+Human · 2026-04-01 10:05 UTC
+
+[Image: diagram <1>.png]
+
+## What is this?
+
+Attachments:
+- notes <draft>.txt (12 bytes)
+- plain.pdf
+
+[Attachment: notes <draft>.txt]
+line with \`\`\` and <b>tags</b>
+[End of Attachment: notes <draft>.txt]
+
+----------------------------------------
+Assistant
+
+[Thinking (summary)]
+Summary of thoughts
+[End of Thinking (summary)]
+
+[Artifact: a.py (v2)]
+x = 1
+
+
+
+y = 2
+[End of Artifact: a.py (v2)]
+"
+`;
+
 exports[`toText > snapshots rich conversation 1`] = `
 "Rich content with \`backticks\` and <html>
 
@@ -16,18 +52,18 @@ Assistant
 
 [Artifact: Hello.js]
 console.log("\`\`\`hi\`\`\`");
-[End of artifact]
+[End of Artifact: Hello.js]
 
 [Tool call: web_search]
 {
   "query": "claude.ai api"
 }
-[End of tool call]
+[End of Tool call: web_search]
 
 [Tool result]
 Result line 1
 Result line 2
-[End of tool result]
+[End of Tool result]
 
 Done — see <above>.
 "
@@ -47,7 +83,7 @@ Assistant
 
 [Thinking]
 Greeting the user.
-[End of thinking]
+[End of Thinking]
 
 Hi there! How can I help?
 "

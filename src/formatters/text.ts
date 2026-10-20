@@ -2,12 +2,14 @@ import type { Block, Transcript, Turn } from '../transcript/types';
 import { safeStringify } from '../util';
 import {
     artifactLabel,
-    formatSize,
+    attachmentLabel,
     formatTime,
     imageLabel,
     roleLabel,
     thinkingLabel,
+    toolCallLabel,
     toolResultLabel,
+    unknownBlockLabel,
 } from './shared';
 
 const RULE = '-'.repeat(40);
@@ -32,34 +34,29 @@ const renderBlock = (block: Block): string => {
         case 'text':
             return block.text;
         case 'thinking':
-            return delimited(thinkingLabel(block.summarized), 'thinking', block.text);
+            return delimited(thinkingLabel(block.summarized), block.text);
         case 'image':
             return imageLabel(block.name);
         case 'artifact': {
             const label = artifactLabel(block);
-            return delimited(label ? `Artifact: ${label}` : 'Artifact', 'artifact', block.content);
+            return delimited(label ? `Artifact: ${label}` : 'Artifact', block.content);
         }
         case 'tool_use':
-            return delimited(`Tool call: ${block.name}`, 'tool call', safeStringify(block.input));
+            return delimited(toolCallLabel(block.name), safeStringify(block.input));
         case 'tool_result':
-            return delimited(toolResultLabel(block.isError), 'tool result', block.text);
+            return delimited(toolResultLabel(block.isError), block.text);
         case 'unknown':
-            return delimited(`Unknown block: ${block.type}`, 'block', safeStringify(block.raw));
+            return delimited(unknownBlockLabel(block.type), safeStringify(block.raw));
     }
 };
 
 /** Brackets multi-line content so its end is visible without Markdown fences. */
-const delimited = (label: string, endOf: string, body: string): string =>
-    `[${label}]\n${body}\n[End of ${endOf}]`;
+const delimited = (label: string, body: string): string => `[${label}]\n${body}\n[End of ${label}]`;
 
 const renderAttachments = (turn: Turn): string => {
-    const list = turn.attachments.map(
-        (a) => `- ${a.name}${a.size === undefined ? '' : ` ${formatSize(a.size)}`}`,
-    );
+    const list = turn.attachments.map((a) => `- ${attachmentLabel(a)}`);
     const embedded = turn.attachments.flatMap((a) =>
-        a.extractedText === undefined
-            ? []
-            : [delimited(`Attachment: ${a.name}`, 'attachment', a.extractedText)],
+        a.extractedText === undefined ? [] : [delimited(`Attachment: ${a.name}`, a.extractedText)],
     );
     return [['Attachments:', ...list].join('\n'), ...embedded].join('\n\n');
 };
