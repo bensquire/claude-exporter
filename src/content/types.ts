@@ -64,8 +64,10 @@ export interface FileAttachment {
     file_uuid?: string;
     file_name?: string;
     file_kind?: string;
+    size_bytes?: number;
     file_size?: number;
     preview_url?: string;
+    preview_asset?: { url?: string; image_width?: number; image_height?: number };
 }
 
 export interface ChatMessage {
@@ -87,6 +89,7 @@ export interface ChatConversation {
     summary?: string;
     created_at?: string;
     updated_at?: string;
+    model?: unknown;
     current_leaf_message_uuid?: string | null;
     chat_messages: ChatMessage[];
 }
@@ -95,13 +98,3 @@ export interface Organization {
     uuid: string;
     name?: string;
 }
-
-export interface ExportOptions {
-    includeThinking: boolean;
-    embedAttachments: boolean;
-}
-
-export const defaultExportOptions: ExportOptions = {
-    includeThinking: true,
-    embedAttachments: true,
-};

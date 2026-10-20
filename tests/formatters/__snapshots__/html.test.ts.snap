@@ -51,7 +51,7 @@ exports[`toHtml > snapshots simple conversation 1`] = `
   .turn-body { padding: 1rem; }
   .turn-body > * + * { margin-top: 0.75rem; }
   p { margin: 0.5rem 0; }
-  pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre, .thinking pre {
+  .turn-body pre {
     background: var(--bg-code);
     color: var(--fg-code);
     padding: 0.75rem 1rem;
@@ -88,6 +88,24 @@ exports[`toHtml > snapshots simple conversation 1`] = `
   .tool-result.is-error pre { border-left: 3px solid #dc2626; }
   .attachments ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
   .attachments .size { color: var(--fg-muted); font-size: 0.85em; }
+  .attachments summary { cursor: pointer; }
+  .attachments li:has(> details) { list-style: none; margin-left: -1rem; }
+  .turn-header time { float: right; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .image-ref { color: var(--fg-muted); font-style: italic; }
+  .image-ref a { color: inherit; }
+  .images { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; }
+  .images .image-ref { margin: 0; }
+  figure.image { margin: 0; break-inside: avoid; }
+  figure.image img {
+    display: block;
+    max-width: 100%;
+    max-height: 20rem;
+    width: auto;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .images > figure:only-child img { max-height: 32rem; }
   details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
   details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
 
@@ -96,7 +114,7 @@ exports[`toHtml > snapshots simple conversation 1`] = `
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
     details.thinking { display: none; }
-    pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre {
+    .turn-body pre {
       background: #f6f8fa;
       color: #111;
       border: 1px solid #e4e4e7;
@@ -109,7 +127,7 @@ exports[`toHtml > snapshots simple conversation 1`] = `
 <body>
 <main>
   <h1>Hello world</h1>
-  <p class="meta">Created 2026-04-01T10:00:00Z</p>
+  <p class="meta">Created 2026-04-01 10:00 UTC</p>
   <section class="turn turn-human">
   <header class="turn-header">Human</header>
   <div class="turn-body">

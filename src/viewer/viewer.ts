@@ -15,6 +15,7 @@ const main = async (): Promise<void> => {
     document.write(html);
     document.close();
 
+    await Promise.all([...document.images].map((img) => img.decode().catch(() => undefined)));
     setTimeout(() => window.print(), 500);
 };
 

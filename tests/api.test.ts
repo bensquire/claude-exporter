@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { API_BASE, findConversation, readCookie } from '../src/content/api';
+import { API_BASE, fetchImageDataUrl, findConversation, readCookie } from '../src/content/api';
 
 const ok = (body: unknown) =>
     new Response(JSON.stringify(body), {
@@ -7,6 +7,8 @@ const ok = (body: unknown) =>
         headers: { 'content-type': 'application/json' },
     });
 const status = (code: number) => new Response('', { status: code });
+const image = (bytes: number[], type = 'image/webp') =>
+    new Response(new Blob([new Uint8Array(bytes)], { type }), { status: 200 });
 
 const stubFetch = (handler: (path: string) => Response) => {
     const calls: string[] = [];
@@ -81,5 +83,34 @@ describe('findConversation', () => {
             path === '/organizations' ? ok([{ uuid: 'a' }, { uuid: 'b' }]) : status(403),
         );
         await expect(findConversation('c1', null)).rejects.toThrow(/any of your organizations/);
+    });
+});
+
+describe('fetchImageDataUrl', () => {
+    it('returns the image as a base64 data URL', async () => {
+        const calls = stubFetch(() => image([0, 1, 2, 250, 255]));
+        await expect(fetchImageDataUrl(`${API_BASE}/o/files/f/preview`)).resolves.toBe(
+            'data:image/webp;base64,AAEC+v8=',
+        );
+        expect(calls).toEqual(['/o/files/f/preview']);
+    });
+
+    it('encodes images larger than one chunk', async () => {
+        stubFetch(() => image(Array.from({ length: 0x8000 * 2 + 3 }, (_, i) => i % 256)));
+        const dataUrl = await fetchImageDataUrl(`${API_BASE}/o/files/f/preview`);
+        expect(atob(dataUrl?.split(',')[1] ?? '')).toHaveLength(0x8000 * 2 + 3);
+    });
+
+    it('refuses other origins without fetching', async () => {
+        const calls = stubFetch(() => image([1]));
+        await expect(fetchImageDataUrl('https://evil.example/x.png')).resolves.toBeUndefined();
+        expect(calls).toEqual([]);
+    });
+
+    it('returns undefined for errors and non-images', async () => {
+        stubFetch(() => status(403));
+        await expect(fetchImageDataUrl(`${API_BASE}/x`)).resolves.toBeUndefined();
+        stubFetch(() => image([1], 'text/html'));
+        await expect(fetchImageDataUrl(`${API_BASE}/x`)).resolves.toBeUndefined();
     });
 });
