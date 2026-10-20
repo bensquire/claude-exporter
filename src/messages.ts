@@ -1,4 +1,11 @@
-export type ExportFormat = 'markdown' | 'html' | 'pdf' | 'json' | 'copy-markdown' | 'copy-html';
+export type ExportFormat =
+    | 'markdown'
+    | 'html'
+    | 'pdf'
+    | 'json'
+    | 'copy-markdown'
+    | 'copy-html'
+    | 'copy-rich';
 
 export interface ExportRequest {
     kind: 'export';
@@ -13,6 +20,8 @@ export interface OkResponse {
     printHtml?: string;
     /** Copied by the popup, which has user activation; the content script doesn't. */
     copyText?: string;
+    /** With copyText as the plain-text fallback, copied as rich text. */
+    copyHtml?: string;
 }
 
 export interface ErrResponse {

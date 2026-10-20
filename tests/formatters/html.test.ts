@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { toHtmlFragment } from '../../src/formatters/html';
+import { toTranscript } from '../../src/transcript/from-claude';
 import { exportHtml } from '../helpers';
 import { richConversation, simpleConversation } from '../fixtures/simple';
 
@@ -94,5 +96,19 @@ describe('toHtml', () => {
 
     it('snapshots simple conversation', () => {
         expect(exportHtml(simpleConversation)).toMatchSnapshot();
+    });
+});
+
+describe('toHtmlFragment', () => {
+    const fragment = toHtmlFragment(toTranscript(richConversation));
+
+    it('has the conversation but no document wrapper or styles', () => {
+        expect(fragment.startsWith('<h1>')).toBe(true);
+        expect(fragment).toContain('Make me an artifact and call a tool.');
+        expect(fragment).not.toMatch(/<(html|head|style|body)[\s>]/);
+    });
+
+    it('is exactly what the full document wraps', () => {
+        expect(exportHtml(richConversation)).toContain(fragment);
     });
 });

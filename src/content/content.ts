@@ -1,7 +1,7 @@
 import type { ExportFormat, Request, Response } from '../messages';
 import { extractConversationUuid, findConversation, readCookie } from './api';
 import { toMarkdown } from '../formatters/markdown';
-import { toHtml } from '../formatters/html';
+import { toHtml, toHtmlFragment } from '../formatters/html';
 import { toJson } from '../formatters/json';
 import { dateStamp, sanitizeFilename } from '../formatters/shared';
 import { toTranscript } from '../transcript/from-claude';
@@ -40,6 +40,7 @@ const exporters: Record<ExportFormat, (t: Transcript, baseName: string) => Respo
     json: (t, baseName) => download(toJson(t), 'application/json', `${baseName}.json`),
     'copy-markdown': (t) => ({ ok: true, copyText: toMarkdown(t) }),
     'copy-html': (t) => ({ ok: true, copyText: toHtml(t) }),
+    'copy-rich': (t) => ({ ok: true, copyText: toMarkdown(t), copyHtml: toHtmlFragment(t) }),
 };
 
 const download = (text: string, type: string, filename: string): Response => {

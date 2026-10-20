@@ -11,9 +11,23 @@ const renderMarkdown = (text: string): string => {
     return md.render(text).trimEnd();
 };
 
-export const toHtml = (t: Transcript): string => {
-    const title = escapeHtml(t.title);
+export const toHtml = (t: Transcript): string => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(t.title)}</title>
+<style>${STYLES}</style>
+</head>
+<body>
+<main>
+  ${toHtmlFragment(t)}
+</main>
+</body>
+</html>
+`;
 
+/** The conversation without a document or styles, for pasting into rich-text editors. */
+export const toHtmlFragment = (t: Transcript): string => {
     const body = t.turns
         .map((turn) => {
             const blocks = turn.blocks.map(renderBlock).join('\n');
@@ -28,22 +42,9 @@ ${attachments ?? ''}
         })
         .join('\n');
 
-    return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${title}</title>
-<style>${STYLES}</style>
-</head>
-<body>
-<main>
-  <h1>${title}</h1>
+    return `<h1>${escapeHtml(t.title)}</h1>
   ${t.createdAt ? `<p class="meta">Created ${escapeHtml(formatTime(t.createdAt))}</p>` : ''}
-  ${body}
-</main>
-</body>
-</html>
-`;
+  ${body}`;
 };
 
 const renderBlock = (block: Block): string => {

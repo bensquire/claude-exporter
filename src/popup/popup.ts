@@ -24,6 +24,14 @@ const exportAs = async (format: ExportFormat): Promise<void> => {
             await chrome.storage.session.set({ pendingPrintHtml: res.printHtml });
             await chrome.tabs.create({ url: chrome.runtime.getURL('src/viewer/viewer.html') });
             setStatus('Print dialog opened in new tab');
+        } else if (res.copyHtml !== undefined) {
+            await navigator.clipboard.write([
+                new ClipboardItem({
+                    'text/html': new Blob([res.copyHtml], { type: 'text/html' }),
+                    'text/plain': new Blob([res.copyText ?? ''], { type: 'text/plain' }),
+                }),
+            ]);
+            setStatus('Copied formatted conversation to clipboard');
         } else if (res.copyText !== undefined) {
             await navigator.clipboard.writeText(res.copyText);
             setStatus(`Copied ${res.copyText.length.toLocaleString()} chars to clipboard`);
