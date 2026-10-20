@@ -123,7 +123,6 @@ const toBlocks = (
 
 const CONTENTLESS_KEYS = new Set(['type', 'start_timestamp', 'stop_timestamp']);
 
-// claude.ai renders assistant replies as Markdown and human messages verbatim.
 const textBlock = (text: string, role: Role): Block => ({
     kind: 'text',
     text,
