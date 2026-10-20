@@ -10,7 +10,7 @@ const transcript: Transcript = {
             id: 'a',
             role: 'assistant',
             blocks: [
-                { kind: 'thinking', text: 'hmm' },
+                { kind: 'thinking', text: 'hmm', summarized: false },
                 { kind: 'text', text: 'hi', format: 'markdown' },
             ],
             attachments: [{ name: 'a.txt', source: 'upload', extractedText: 'body' }],

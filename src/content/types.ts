@@ -64,6 +64,7 @@ export interface FileAttachment {
     file_uuid?: string;
     file_name?: string;
     file_kind?: string;
+    size_bytes?: number;
     file_size?: number;
     preview_url?: string;
 }

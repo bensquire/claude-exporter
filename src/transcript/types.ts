@@ -23,6 +23,7 @@ export interface Turn {
 export type Block =
     | TextBlock
     | ThinkingBlock
+    | ImageBlock
     | ArtifactBlock
     | ToolUseBlock
     | ToolResultBlock
@@ -35,9 +36,18 @@ export interface TextBlock {
     format: 'markdown' | 'plain';
 }
 
+/** `summarized`: claude.ai only kept a summary of the thinking, not the full text. */
 export interface ThinkingBlock {
     kind: 'thinking';
     text: string;
+    summarized: boolean;
+}
+
+/** An image in the message. Its binary isn't exported, only a reference. */
+export interface ImageBlock {
+    kind: 'image';
+    fileId: string;
+    name: string;
 }
 
 /** The full artifact as of this point in the conversation, with earlier edits
@@ -74,7 +84,7 @@ export interface Attachment {
     name: string;
     size?: number;
     mimeType?: string;
-    /** `upload`: pasted or uploaded content claude.ai extracted text from. `file`: a stored file such as an image. */
+    /** `upload`: content claude.ai extracted text from. `file`: a stored file, e.g. a PDF. */
     source: 'upload' | 'file';
     extractedText?: string;
 }

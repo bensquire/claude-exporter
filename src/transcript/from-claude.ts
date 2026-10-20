@@ -46,20 +46,32 @@ type ArtifactStore = Map<string, ArtifactBlock>;
 
 const toTurn = (msg: ChatMessage, artifacts: ArtifactStore): Turn => {
     const role: Role = msg.sender === 'human' ? 'human' : 'assistant';
-    const blocks = Array.isArray(msg.content) ? msg.content : [];
+    const content = Array.isArray(msg.content) ? msg.content : [];
+    const files = new Map((msg.files ?? []).map((f) => [f.file_uuid, f]));
+    const blocks =
+        content.length === 0 && typeof msg.text === 'string' && msg.text.length > 0
+            ? [textBlock(msg.text, role)]
+            : content.flatMap((b) => toBlocks(b, role, artifacts, files));
+    // Images already appear inline as image blocks.
+    const inline = new Set(blocks.flatMap((b) => (b.kind === 'image' ? [b.fileId] : [])));
     return {
         id: msg.uuid,
         role,
         ...optional('createdAt', str(msg.created_at)),
-        blocks:
-            blocks.length === 0 && typeof msg.text === 'string' && msg.text.length > 0
-                ? [textBlock(msg.text, role)]
-                : blocks.flatMap((b) => toBlocks(b, role, artifacts)),
-        attachments: toAttachments(msg),
+        blocks,
+        attachments: [
+            ...(msg.attachments ?? []).map(fromUpload),
+            ...(msg.files ?? []).filter((f) => !inline.has(f.file_uuid ?? '')).map(fromFile),
+        ],
     };
 };
 
-const toBlocks = (block: ContentBlock, role: Role, artifacts: ArtifactStore): Block[] => {
+const toBlocks = (
+    block: ContentBlock,
+    role: Role,
+    artifacts: ArtifactStore,
+    files: Map<string | undefined, FileAttachment>,
+): Block[] => {
     const type = block.type;
 
     if (type === 'text') {
@@ -68,9 +80,21 @@ const toBlocks = (block: ContentBlock, role: Role, artifacts: ArtifactStore): Bl
     }
 
     if (type === 'thinking') {
-        const b = block as { thinking?: unknown; text?: unknown };
-        const text = str(b.thinking) ?? str(b.text) ?? '';
-        return text ? [{ kind: 'thinking', text }] : [];
+        const b = block as { thinking?: unknown; text?: unknown; summaries?: unknown };
+        const text = str(b.thinking) || str(b.text);
+        if (text) return [{ kind: 'thinking', text, summarized: false }];
+        // With thinking hidden, claude.ai keeps only these summaries.
+        const summary = (Array.isArray(b.summaries) ? b.summaries : [])
+            .map((s) => (isRecord(s) ? str(s.summary) : undefined))
+            .filter(Boolean)
+            .join('\n\n');
+        return summary ? [{ kind: 'thinking', text: summary, summarized: true }] : [];
+    }
+
+    if (type === 'image') {
+        const fileId = str((block as { file_uuid?: unknown }).file_uuid);
+        if (fileId === undefined) return [];
+        return [{ kind: 'image', fileId, name: files.get(fileId)?.file_name || 'image' }];
     }
 
     if (type === 'tool_use') {
@@ -91,8 +115,13 @@ const toBlocks = (block: ContentBlock, role: Role, artifacts: ArtifactStore): Bl
         ];
     }
 
+    // Markers such as token_budget carry nothing worth exporting.
+    if (Object.keys(block).every((k) => CONTENTLESS_KEYS.has(k))) return [];
+
     return [{ kind: 'unknown', type, raw: block }];
 };
+
+const CONTENTLESS_KEYS = new Set(['type', 'start_timestamp', 'stop_timestamp']);
 
 // claude.ai renders assistant replies as Markdown and human messages verbatim.
 const textBlock = (text: string, role: Role): Block => ({
@@ -129,11 +158,6 @@ const toArtifact = (input: Record<string, unknown>, artifacts: ArtifactStore): B
     return [block];
 };
 
-const toAttachments = (msg: ChatMessage): Attachment[] => [
-    ...(msg.attachments ?? []).map(fromUpload),
-    ...(msg.files ?? []).map(fromFile),
-];
-
 const fromUpload = (a: ClaudeAttachment): Attachment => ({
     name: a.file_name || 'unnamed',
     ...optional('size', num(a.file_size)),
@@ -144,7 +168,7 @@ const fromUpload = (a: ClaudeAttachment): Attachment => ({
 
 const fromFile = (f: FileAttachment): Attachment => ({
     name: f.file_name || 'unnamed',
-    ...optional('size', num(f.file_size)),
+    ...optional('size', num(f.size_bytes) ?? num(f.file_size)),
     source: 'file',
 });
 

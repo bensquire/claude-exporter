@@ -1,13 +1,13 @@
 import type { Block, Transcript, Turn } from '../transcript/types';
-import { artifactLabel, pickFence, safeStringify } from './shared';
+import { artifactLabel, formatTime, pickFence, safeStringify, thinkingLabel } from './shared';
 
 export const toMarkdown = (t: Transcript): string => {
     const parts: string[] = [];
 
     parts.push(`# ${t.title}`);
     parts.push('');
-    if (t.createdAt) parts.push(`_Created: ${t.createdAt}_`);
-    if (t.updatedAt) parts.push(`_Updated: ${t.updatedAt}_`);
+    if (t.createdAt) parts.push(`_Created: ${formatTime(t.createdAt)}_`);
+    if (t.updatedAt) parts.push(`_Updated: ${formatTime(t.updatedAt)}_`);
     parts.push('');
 
     for (const turn of t.turns) {
@@ -39,7 +39,9 @@ const renderBlock = (block: Block): string => {
         case 'text':
             return block.text;
         case 'thinking':
-            return `<details><summary>Thinking</summary>\n\n${block.text}\n\n</details>`;
+            return `<details><summary>${thinkingLabel(block.summarized)}</summary>\n\n${block.text}\n\n</details>`;
+        case 'image':
+            return `_[Image: ${block.name}]_`;
         case 'artifact': {
             const fence = pickFence(block.content);
             const label = artifactLabel(block);
@@ -70,6 +72,18 @@ const renderAttachments = (turn: Turn): string | null => {
     for (const a of turn.attachments) {
         const size = a.size === undefined ? '' : ` (${a.size} bytes)`;
         lines.push(`- ${a.name}${size}`);
+    }
+    for (const a of turn.attachments) {
+        if (a.extractedText === undefined) continue;
+        const fence = pickFence(a.extractedText);
+        lines.push(
+            '',
+            `<details><summary>${a.name}</summary>`,
+            '',
+            `${fence}\n${a.extractedText}\n${fence}`,
+            '',
+            '</details>',
+        );
     }
     return lines.join('\n');
 };

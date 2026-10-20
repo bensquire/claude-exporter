@@ -8,6 +8,17 @@ export const safeStringify = (x: unknown): string => {
     }
 };
 
+export const thinkingLabel = (summarized: boolean): string =>
+    summarized ? 'Thinking (summary)' : 'Thinking';
+
+/** `2026-04-01 10:00 UTC`: timezone-independent, so exports are reproducible. */
+export const formatTime = (iso: string): string => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+        ? iso
+        : `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+};
+
 export const artifactLabel = (a: ArtifactBlock): string | undefined =>
     a.partial ? `${a.title ?? 'Artifact'} (partial update)` : a.title;
 

@@ -78,11 +78,33 @@ describe('blocks', () => {
 
     it('reads thinking from either field', () => {
         expect(blocksOf([{ type: 'thinking', thinking: 'a' }])).toEqual([
-            { kind: 'thinking', text: 'a' },
+            { kind: 'thinking', text: 'a', summarized: false },
         ]);
         expect(blocksOf([{ type: 'thinking', text: 'b' }])).toEqual([
-            { kind: 'thinking', text: 'b' },
+            { kind: 'thinking', text: 'b', summarized: false },
         ]);
+    });
+
+    it('falls back to thinking summaries when the full text was not kept', () => {
+        expect(
+            blocksOf([
+                {
+                    type: 'thinking',
+                    thinking: '',
+                    summaries: [{ summary: 'First' }, { summary: 'Second' }],
+                } as never,
+            ]),
+        ).toEqual([{ kind: 'thinking', text: 'First\n\nSecond', summarized: true }]);
+        expect(blocksOf([{ type: 'thinking', thinking: '', summaries: [] } as never])).toEqual([]);
+    });
+
+    it('drops contentless marker blocks such as token_budget', () => {
+        expect(
+            blocksOf([
+                { type: 'token_budget', start_timestamp: 'a', stop_timestamp: 'b' } as never,
+                { type: 'text', text: 'kept' },
+            ]),
+        ).toEqual([{ kind: 'text', text: 'kept', format: 'markdown' }]);
     });
 
     it('keeps tool input as structured data', () => {
@@ -209,6 +231,37 @@ describe('attachments', () => {
             },
             { name: 'photo.png', size: 99, source: 'file' },
         ]);
+    });
+
+    it('reads file sizes from size_bytes, falling back to file_size', () => {
+        const t = toTranscript(
+            conversationOf({
+                content: [],
+                files: [
+                    { file_uuid: 'f1', file_name: 'a.pdf', size_bytes: 10 },
+                    { file_uuid: 'f2', file_name: 'b.pdf', file_size: 20 },
+                ],
+            }),
+        );
+        expect(t.turns[0]?.attachments.map((a) => a.size)).toEqual([10, 20]);
+    });
+
+    it('turns image blocks into references and keeps those files out of attachments', () => {
+        const t = toTranscript(
+            conversationOf({
+                sender: 'human',
+                content: [
+                    { type: 'image', file_uuid: 'img' } as never,
+                    { type: 'text', text: 'see' },
+                ],
+                files: [
+                    { file_uuid: 'img', file_name: 'photo.png', file_kind: 'image' },
+                    { file_uuid: 'doc', file_name: 'spec.pdf', file_kind: 'document' },
+                ],
+            }),
+        );
+        expect(t.turns[0]?.blocks[0]).toEqual({ kind: 'image', fileId: 'img', name: 'photo.png' });
+        expect(t.turns[0]?.attachments.map((a) => a.name)).toEqual(['spec.pdf']);
     });
 
     it('names unnamed attachments and drops empty extracted text', () => {
