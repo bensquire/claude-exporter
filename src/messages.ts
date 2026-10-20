@@ -1,4 +1,4 @@
-export type ExportFormat = 'markdown' | 'html' | 'pdf' | 'copy-markdown' | 'copy-html';
+export type ExportFormat = 'markdown' | 'html' | 'pdf' | 'json' | 'copy-markdown' | 'copy-html';
 
 export interface ExportRequest {
     kind: 'export';
