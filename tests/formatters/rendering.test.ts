@@ -85,6 +85,29 @@ describe('Images', () => {
         );
     });
 
+    it('puts consecutive images in one row, broken by other blocks', () => {
+        const img = (fileId: string) => ({ kind: 'image', fileId, name: fileId, url }) as const;
+        const html = toHtml({
+            ...withImage({}),
+            turns: [
+                {
+                    id: 'h',
+                    role: 'human',
+                    blocks: [
+                        img('a'),
+                        img('b'),
+                        { kind: 'text', text: 'between', format: 'plain' },
+                        img('c'),
+                    ],
+                    attachments: [],
+                },
+            ],
+        });
+        const rows = html.match(/<div class="images">.*?<\/div>/g) ?? [];
+        expect(rows.map((r) => (r.match(/image-ref/g) ?? []).length)).toEqual([2, 1]);
+        expect(html.indexOf('between')).toBeGreaterThan(html.indexOf(rows[0] ?? ''));
+    });
+
     it('never puts anything but image data in an img src', () => {
         const html = toHtml(withImage({ url, dataUrl: 'https://evil.example/x.png' }));
         expect(html).not.toContain('<img');

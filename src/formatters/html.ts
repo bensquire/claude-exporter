@@ -42,7 +42,7 @@ export const toHtml = (t: Transcript): string => `<!doctype html>
 export const toHtmlFragment = (t: Transcript): string => {
     const body = t.turns
         .map((turn) => {
-            const blocks = turn.blocks.map(renderBlock).join('\n');
+            const blocks = renderBlocks(turn.blocks);
             const attachments = renderAttachments(turn);
             return `<section class="turn turn-${turn.role}">
   <header class="turn-header">${roleLabel(turn.role)}${turnTime(turn)}</header>
@@ -57,6 +57,27 @@ ${attachments ?? ''}
     return `<h1>${escapeHtml(t.title)}</h1>
   ${t.createdAt ? `<p class="meta">Created ${escapeHtml(formatTime(t.createdAt))}</p>` : ''}
   ${body}`;
+};
+
+/** Consecutive images share a row, as on claude.ai. */
+const renderBlocks = (blocks: Block[]): string =>
+    groupImages(blocks)
+        .map((group) =>
+            Array.isArray(group)
+                ? `<div class="images">${group.map(renderImage).join('')}</div>`
+                : renderBlock(group),
+        )
+        .join('\n');
+
+const groupImages = (blocks: Block[]): (Block | ImageBlock[])[] => {
+    const groups: (Block | ImageBlock[])[] = [];
+    for (const block of blocks) {
+        const last = groups.at(-1);
+        if (block.kind !== 'image') groups.push(block);
+        else if (Array.isArray(last)) last.push(block);
+        else groups.push([block]);
+    }
+    return groups;
 };
 
 const renderBlock = (block: Block): string => {
@@ -222,16 +243,19 @@ const STYLES = `
   .turn-header time { float: right; font-weight: 400; letter-spacing: 0; text-transform: none; }
   .image-ref { color: var(--fg-muted); font-style: italic; }
   .image-ref a { color: inherit; }
+  .images { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; }
+  .images .image-ref { margin: 0; }
   figure.image { margin: 0; break-inside: avoid; }
   figure.image img {
     display: block;
     max-width: 100%;
-    max-height: 32rem;
+    max-height: 20rem;
     width: auto;
     height: auto;
     border: 1px solid var(--border);
     border-radius: 6px;
   }
+  .images > figure:only-child img { max-height: 32rem; }
   details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
   details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
 
