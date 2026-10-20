@@ -29,7 +29,8 @@ PROJECT_ID=your-project
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
 REPO=bensquire/claude-exporter
 
-gcloud services enable chromewebstore.googleapis.com iamcredentials.googleapis.com --project=$PROJECT_ID
+gcloud services enable chromewebstore.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project=$PROJECT_ID
+# A new project can take a few minutes before the pool commands below stop failing with PERMISSION_DENIED.
 
 gcloud iam service-accounts create chrome-web-store --project=$PROJECT_ID
 SA=chrome-web-store@$PROJECT_ID.iam.gserviceaccount.com
