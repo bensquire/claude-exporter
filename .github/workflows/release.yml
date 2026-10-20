@@ -41,7 +41,12 @@ jobs:
 
             - run: npm ci
             - run: npm run build
-            - run: cd dist && zip -qrX "../$ZIP" .
+            - name: Package
+              run: |
+                  zip_path="$RUNNER_TEMP/$ZIP"
+                  (cd dist && zip -qrX "$zip_path" .)
+                  ls -l "$zip_path"
+                  echo "ZIP_PATH=$zip_path" >> "$GITHUB_ENV"
 
             - id: auth
               uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -57,7 +62,7 @@ jobs:
               run: |
                   api=https://chromewebstore.googleapis.com
                   res=$(curl -sS --fail-with-body -X POST -H "Authorization: Bearer $TOKEN" \
-                      -T "$ZIP" "$api/upload/v2/$ITEM:upload")
+                      -T "$ZIP_PATH" "$api/upload/v2/$ITEM:upload")
                   echo "$res"
                   state=$(jq -r .uploadState <<<"$res")
                   for _ in $(seq 30); do
@@ -82,4 +87,4 @@ jobs:
             - name: Create GitHub release
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh release create "$GITHUB_REF_NAME" "$ZIP" --verify-tag --generate-notes
+              run: gh release create "$GITHUB_REF_NAME" "$ZIP_PATH" --verify-tag --generate-notes
