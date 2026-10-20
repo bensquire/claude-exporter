@@ -22,7 +22,8 @@ jobs:
             contents: write # create the GitHub release
             id-token: write # Workload Identity Federation
         env:
-            ZIP: claude-exporter-${{ github.ref_name }}.zip
+            # Not ZIP: Info-ZIP reads $ZIP as extra command-line options.
+            ARCHIVE: claude-exporter-${{ github.ref_name }}.zip
             ITEM: publishers/${{ vars.CWS_PUBLISHER_ID }}/items/${{ vars.CWS_EXTENSION_ID }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,10 +44,10 @@ jobs:
             - run: npm run build
             - name: Package
               run: |
-                  zip_path="$RUNNER_TEMP/$ZIP"
-                  (cd dist && zip -qrX "$zip_path" .)
-                  ls -l "$zip_path"
-                  echo "ZIP_PATH=$zip_path" >> "$GITHUB_ENV"
+                  archive_path="$RUNNER_TEMP/$ARCHIVE"
+                  (cd dist && zip -qrX "$archive_path" .)
+                  ls -l "$archive_path"
+                  echo "ARCHIVE_PATH=$archive_path" >> "$GITHUB_ENV"
 
             - id: auth
               uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
@@ -62,7 +63,7 @@ jobs:
               run: |
                   api=https://chromewebstore.googleapis.com
                   res=$(curl -sS --fail-with-body -X POST -H "Authorization: Bearer $TOKEN" \
-                      -T "$ZIP_PATH" "$api/upload/v2/$ITEM:upload")
+                      -T "$ARCHIVE_PATH" "$api/upload/v2/$ITEM:upload")
                   echo "$res"
                   state=$(jq -r .uploadState <<<"$res")
                   for _ in $(seq 30); do
@@ -87,4 +88,4 @@ jobs:
             - name: Create GitHub release
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: gh release create "$GITHUB_REF_NAME" "$ZIP_PATH" --verify-tag --generate-notes
+              run: gh release create "$GITHUB_REF_NAME" "$ARCHIVE_PATH" --verify-tag --generate-notes
