@@ -18,6 +18,13 @@ describe('artifactLabel', () => {
         );
         expect(artifactLabel({ ...base, partial: true })).toBe('Artifact (partial update)');
     });
+
+    it('shows the version from the second version on', () => {
+        expect(artifactLabel({ ...base, title: 'App', partial: false, version: 2 })).toBe(
+            'App (v2)',
+        );
+        expect(artifactLabel({ ...base, partial: false, version: 3 })).toBe('Artifact (v3)');
+    });
 });
 
 describe('safeStringify', () => {

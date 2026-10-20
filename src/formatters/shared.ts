@@ -19,8 +19,11 @@ export const formatTime = (iso: string): string => {
         : `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 };
 
-export const artifactLabel = (a: ArtifactBlock): string | undefined =>
-    a.partial ? `${a.title ?? 'Artifact'} (partial update)` : a.title;
+export const artifactLabel = (a: ArtifactBlock): string | undefined => {
+    if (a.partial) return `${a.title ?? 'Artifact'} (partial update)`;
+    if (a.version > 1) return `${a.title ?? 'Artifact'} (v${a.version})`;
+    return a.title;
+};
 
 export const escapeHtml = (s: string): string =>
     s

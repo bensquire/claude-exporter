@@ -178,6 +178,7 @@ const STYLES = `
   .attachments ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
   .attachments .size { color: var(--fg-muted); font-size: 0.85em; }
   .attachments summary { cursor: pointer; }
+  .attachments li:has(> details) { list-style: none; margin-left: -1rem; }
   .turn-header time { float: right; font-weight: 400; letter-spacing: 0; text-transform: none; }
   .image-ref { color: var(--fg-muted); font-style: italic; }
   details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
