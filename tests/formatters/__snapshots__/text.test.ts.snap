@@ -1,0 +1,54 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`toText > snapshots rich conversation 1`] = `
+"Rich content with \`backticks\` and <html>
+
+----------------------------------------
+Human
+
+Make me an artifact and call a tool.
+
+Attachments:
+- spec.pdf (12345 bytes)
+
+----------------------------------------
+Assistant
+
+[Artifact: Hello.js]
+console.log("\`\`\`hi\`\`\`");
+[End of artifact]
+
+[Tool call: web_search]
+{
+  "query": "claude.ai api"
+}
+[End of tool call]
+
+[Tool result]
+Result line 1
+Result line 2
+[End of tool result]
+
+Done — see <above>.
+"
+`;
+
+exports[`toText > snapshots simple conversation 1`] = `
+"Hello world
+Created: 2026-04-01 10:00 UTC
+
+----------------------------------------
+Human
+
+Hello, Claude!
+
+----------------------------------------
+Assistant
+
+[Thinking]
+Greeting the user.
+[End of thinking]
+
+Hi there! How can I help?
+"
+`;

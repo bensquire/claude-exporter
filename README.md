@@ -1,6 +1,6 @@
 # Claude Exporter
 
-> A privacy-first Chrome extension to export [claude.ai](https://claude.ai) conversations to **Markdown**, **HTML**, and **PDF** — or copy them straight to your **clipboard**.
+> A privacy-first Chrome extension to export [claude.ai](https://claude.ai) conversations to **Markdown**, **HTML**, **PDF**, **JSON** and **plain text** — or copy them straight to your **clipboard**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
@@ -16,7 +16,8 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 - **Export to HTML** — self-contained, single-file `.html` with inlined styles. Claude's replies are rendered from Markdown (headings, lists, tables, code blocks), as on claude.ai.
 - **Export to PDF** — opens a print-tuned preview and triggers your browser's native print dialog (vector text, real pagination).
 - **Export to JSON** — the whole conversation as structured data, for scripts and other tools (see [Architecture](#architecture)).
-- **Copy to clipboard** — copy as Markdown, as HTML source, or **formatted**, which pastes into Google Docs, Notion and similar with headings, lists and code intact.
+- **Export to plain text** — `.txt` with no Markdown or HTML around the messages, for email, tickets and anywhere Markdown would show as clutter. Message text is kept exactly as written.
+- **Copy to clipboard** — copy as Markdown, as HTML source, as plain text, or **formatted**, which pastes into Google Docs, Notion and similar with headings, lists and code intact.
 - **Branched conversations** — only the active branch (the path you're reading) is exported, not regenerated dead-ends.
 - **Artifacts** — exported in full, with later edits applied, so each one shows the version Claude produced at that point (labelled v2, v3, …).
 - **Attachments** — text claude.ai extracted from pasted or uploaded documents is included (collapsed); images and files are listed by name.
@@ -80,8 +81,8 @@ Coming soon.
 1. Open any conversation on [claude.ai](https://claude.ai).
 2. Click the **Claude Exporter** icon in your toolbar.
 3. Pick an action:
-    - **Download**: Markdown · HTML · PDF · JSON
-    - **Copy to clipboard**: Copy as Markdown · Copy formatted · Copy as HTML
+    - **Download**: Markdown · HTML · PDF · JSON · Plain text
+    - **Copy to clipboard**: Copy as Markdown · Copy formatted · Copy as HTML · Copy as plain text
 
 For PDF: a new tab opens with the print preview and the system print dialog automatically appears. Choose **Save as PDF** as the destination. Chrome remembers your last destination, so subsequent prints are effectively one click.
 
@@ -124,14 +125,15 @@ src/
 │   ├── shared.ts            # Escaping, fence picking, labels, timestamps
 │   ├── markdown.ts          # Transcript → Markdown
 │   ├── html.ts              # Transcript → standalone HTML + print CSS, or a style-free fragment
-│   └── json.ts              # Transcript → JSON
+│   ├── json.ts              # Transcript → JSON
+│   └── text.ts              # Transcript → plain text
 └── viewer/
     ├── viewer.html          # Print preview shell
     └── viewer.ts            # Reads HTML from session storage and prints
 ```
 
 ```
-claude.ai JSON ──toTranscript──▶ Transcript ──applyOptions──▶ Transcript ──formatter──▶ .md / .html / .json / clipboard
+claude.ai JSON ──toTranscript──▶ Transcript ──applyOptions──▶ Transcript ──formatter──▶ .md / .html / .json / .txt / clipboard
 ```
 
 The converter and formatters are **pure functions**: no I/O, no DOM, no `chrome.*` APIs. When claude.ai changes its API, only `transcript/from-claude.ts` should need to change.

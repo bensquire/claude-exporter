@@ -3,8 +3,10 @@ export type ExportFormat =
     | 'html'
     | 'pdf'
     | 'json'
+    | 'text'
     | 'copy-markdown'
     | 'copy-html'
+    | 'copy-text'
     | 'copy-rich';
 
 export interface ExportRequest {
