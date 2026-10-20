@@ -1,11 +1,12 @@
 import type { ExportFormat, Request, Response } from '../messages';
-import { extractConversationUuid, findConversation, readCookie } from './api';
+import { extractConversationUuid, fetchImageDataUrl, findConversation, readCookie } from './api';
 import { toMarkdown } from '../formatters/markdown';
 import { toHtml, toHtmlFragment } from '../formatters/html';
 import { toJson } from '../formatters/json';
 import { toText } from '../formatters/text';
 import { dateStamp, sanitizeFilename } from '../formatters/shared';
 import { toTranscript } from '../transcript/from-claude';
+import { embedImages } from '../transcript/images';
 import { applyOptions, defaultExportOptions } from '../transcript/options';
 import type { Transcript } from '../transcript/types';
 
@@ -29,10 +30,14 @@ const handleExport = async (format: ExportFormat): Promise<Response> => {
     if (!Object.hasOwn(exporters, format)) return { ok: false, error: `Unknown format: ${format}` };
 
     const conversation = await findConversation(uuid, readCookie(document.cookie, 'lastActiveOrg'));
-    const transcript = applyOptions(toTranscript(conversation), defaultExportOptions);
+    let transcript = applyOptions(toTranscript(conversation), defaultExportOptions);
+    if (EMBEDS_IMAGES.has(format)) transcript = await embedImages(transcript, fetchImageDataUrl);
     const baseName = `${sanitizeFilename(transcript.title)}-${dateStamp()}`;
     return exporters[format](transcript, baseName);
 };
+
+/** HTML-based formats carry image previews; the rest link to them. */
+const EMBEDS_IMAGES: ReadonlySet<ExportFormat> = new Set(['html', 'pdf', 'copy-html', 'copy-rich']);
 
 const exporters: Record<ExportFormat, (t: Transcript, baseName: string) => Response> = {
     markdown: (t, baseName) => download(toMarkdown(t), 'text/markdown', `${baseName}.md`),

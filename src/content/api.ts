@@ -1,6 +1,7 @@
 import type { ChatConversation, Organization } from './types';
 
-export const API_BASE = 'https://claude.ai/api';
+export const CLAUDE_ORIGIN = 'https://claude.ai';
+export const API_BASE = `${CLAUDE_ORIGIN}/api`;
 
 class ApiError extends Error {
     constructor(
@@ -66,6 +67,25 @@ export const findConversation = async (
         if (hit) return hit;
     }
     throw new ApiError('Conversation not found in any of your organizations.');
+};
+
+/** A claude.ai image as a `data:` URL. Anything not on claude.ai is refused. */
+export const fetchImageDataUrl = async (url: string): Promise<string | undefined> => {
+    if (new URL(url).origin !== CLAUDE_ORIGIN) return undefined;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return undefined;
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/')) return undefined;
+    return `data:${blob.type};base64,${toBase64(new Uint8Array(await blob.arrayBuffer()))}`;
+};
+
+const toBase64 = (bytes: Uint8Array): string => {
+    let binary = '';
+    // Chunked: spreading a whole image into fromCharCode overflows the stack.
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
 };
 
 export const readCookie = (cookies: string, name: string): string | null => {

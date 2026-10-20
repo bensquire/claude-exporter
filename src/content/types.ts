@@ -67,6 +67,7 @@ export interface FileAttachment {
     size_bytes?: number;
     file_size?: number;
     preview_url?: string;
+    preview_asset?: { url?: string; image_width?: number; image_height?: number };
 }
 
 export interface ChatMessage {

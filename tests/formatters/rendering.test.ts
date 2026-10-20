@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { toHtml } from '../../src/formatters/html';
 import { toMarkdown } from '../../src/formatters/markdown';
+import { toText } from '../../src/formatters/text';
+import type { ImageBlock, Transcript } from '../../src/transcript/types';
 import { renderingTranscript } from '../fixtures/transcript';
 
 const transcript = renderingTranscript;
@@ -44,5 +46,48 @@ describe('HTML rendering', () => {
 
     it('lists attachments without extracted text plainly', () => {
         expect(html).toContain('<li>plain.pdf</li>');
+    });
+});
+
+const url = 'https://claude.ai/api/o/files/f/preview';
+const withImage = (image: Partial<ImageBlock>): Transcript => ({
+    id: 't',
+    title: 'Images',
+    turns: [
+        {
+            id: 'h',
+            role: 'human',
+            blocks: [{ kind: 'image', fileId: 'f', name: 'oven [1].jpeg', ...image }],
+            attachments: [],
+        },
+    ],
+});
+
+describe('Images', () => {
+    it('links to the preview in Markdown and plain text', () => {
+        expect(toMarkdown(withImage({ url }))).toContain(`_[Image: oven \\[1\\].jpeg](${url})_`);
+        expect(toText(withImage({ url }))).toContain(`[Image: oven [1].jpeg] ${url}`);
+    });
+
+    it('embeds the preview in HTML, sized and escaped', () => {
+        const html = toHtml(
+            withImage({ url, width: 952, height: 1269, dataUrl: 'data:image/webp;base64,AA"=' }),
+        );
+        expect(html).toContain(
+            '<figure class="image"><img src="data:image/webp;base64,AA&quot;=" alt="oven [1].jpeg" width="952" height="1269"></figure>',
+        );
+        expect(html).not.toContain(url);
+    });
+
+    it('links instead when the image was not embedded', () => {
+        expect(toHtml(withImage({ url }))).toContain(
+            `<p class="image-ref"><a href="${url}">[Image: oven [1].jpeg]</a></p>`,
+        );
+    });
+
+    it('never puts anything but image data in an img src', () => {
+        const html = toHtml(withImage({ url, dataUrl: 'https://evil.example/x.png' }));
+        expect(html).not.toContain('<img');
+        expect(html).not.toContain('evil.example');
     });
 });

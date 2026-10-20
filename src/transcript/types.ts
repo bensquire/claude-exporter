@@ -46,11 +46,17 @@ export interface ThinkingBlock {
     summarized: boolean;
 }
 
-/** An image in the message. Its binary isn't exported, only a reference. */
+/** An image in the message: a reference, plus the preview itself once embedded. */
 export interface ImageBlock {
     kind: 'image';
     fileId: string;
     name: string;
+    /** claude.ai's preview (about 1000px, WebP). Opening it needs a claude.ai login. */
+    url?: string;
+    width?: number;
+    height?: number;
+    /** The preview as a `data:image/…` URL, added by embedImages for formats that inline it. */
+    dataUrl?: string;
 }
 
 /** The full artifact as of this point in the conversation, with earlier edits

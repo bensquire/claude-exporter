@@ -57,7 +57,9 @@ const renderBlock = (block: Block): string => {
         case 'thinking':
             return `<details><summary>${thinkingLabel(block.summarized)}</summary>\n\n${block.text}\n\n</details>`;
         case 'image':
-            return `_${imageLabel(block.name)}_`;
+            return block.url
+                ? `_[Image: ${block.name.replace(/[[\]\\]/g, '\\$&')}](${block.url})_`
+                : `_${imageLabel(block.name)}_`;
         case 'artifact': {
             const label = artifactLabel(block);
             const header = label ? `\n_${label}_\n` : '';

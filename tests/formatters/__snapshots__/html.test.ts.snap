@@ -92,6 +92,17 @@ exports[`toHtml > snapshots simple conversation 1`] = `
   .attachments li:has(> details) { list-style: none; margin-left: -1rem; }
   .turn-header time { float: right; font-weight: 400; letter-spacing: 0; text-transform: none; }
   .image-ref { color: var(--fg-muted); font-style: italic; }
+  .image-ref a { color: inherit; }
+  figure.image { margin: 0; break-inside: avoid; }
+  figure.image img {
+    display: block;
+    max-width: 100%;
+    max-height: 32rem;
+    width: auto;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
   details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
   details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
 

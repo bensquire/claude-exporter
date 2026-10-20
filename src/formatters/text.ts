@@ -36,7 +36,7 @@ const renderBlock = (block: Block): string => {
         case 'thinking':
             return delimited(thinkingLabel(block.summarized), block.text);
         case 'image':
-            return imageLabel(block.name);
+            return block.url ? `${imageLabel(block.name)} ${block.url}` : imageLabel(block.name);
         case 'artifact': {
             const label = artifactLabel(block);
             return delimited(label ? `Artifact: ${label}` : 'Artifact', block.content);

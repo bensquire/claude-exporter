@@ -264,6 +264,39 @@ describe('attachments', () => {
         expect(t.turns[0]?.attachments.map((a) => a.name)).toEqual(['spec.pdf']);
     });
 
+    it('links images to their claude.ai preview, with its size', () => {
+        const imageTurn = (file: Record<string, unknown>) =>
+            toTranscript(
+                conversationOf({
+                    content: [{ type: 'image', file_uuid: 'img' } as never],
+                    files: [{ file_uuid: 'img', file_name: 'p.jpeg', ...file }],
+                }),
+            ).turns[0]?.blocks[0];
+
+        expect(
+            imageTurn({
+                preview_url: '/api/o/files/img/old',
+                preview_asset: {
+                    url: '/api/o/files/img/preview',
+                    image_width: 952,
+                    image_height: 1269,
+                },
+            }),
+        ).toEqual({
+            kind: 'image',
+            fileId: 'img',
+            name: 'p.jpeg',
+            url: 'https://claude.ai/api/o/files/img/preview',
+            width: 952,
+            height: 1269,
+        });
+        expect(imageTurn({ preview_url: '/api/o/files/img/preview' })).toMatchObject({
+            url: 'https://claude.ai/api/o/files/img/preview',
+        });
+        expect(imageTurn({ preview_url: 'https://evil.example/x.png' })).not.toHaveProperty('url');
+        expect(imageTurn({ preview_url: '//evil.example/x.png' })).not.toHaveProperty('url');
+    });
+
     it('names unnamed attachments and drops empty extracted text', () => {
         const t = toTranscript(
             conversationOf({ content: [], attachments: [{ extracted_content: '' }] }),

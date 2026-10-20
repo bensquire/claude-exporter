@@ -20,12 +20,13 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 - **Copy to clipboard** — copy as Markdown, as HTML source, as plain text, or **formatted**, which pastes into Google Docs, Notion and similar with headings, lists and code intact.
 - **Branched conversations** — only the active branch (the path you're reading) is exported, not regenerated dead-ends.
 - **Artifacts** — exported in full, with later edits applied, so each one shows the version Claude produced at that point (labelled v2, v3, …).
-- **Attachments** — text claude.ai extracted from pasted or uploaded documents is included (collapsed); images and files are listed by name.
+- **Images** — embedded in HTML, PDF and formatted copies (claude.ai's ~1000px preview), so the file stands alone. Markdown, plain text and JSON link to the preview instead; those links only open while you're logged in to claude.ai.
+- **Attachments** — text claude.ai extracted from pasted or uploaded documents is included (collapsed); other files are listed by name.
 - **Timestamps** — each turn shows when it was sent (UTC) in Markdown, HTML and PDF.
 - **Thinking** — Claude's thinking, or its summary where claude.ai only kept a summary, in collapsible sections.
 - **Multiple organizations** — works whether the conversation lives in your personal account or a Team/Enterprise org.
 - **Code-fence safe** — code blocks containing backticks get a longer fence, so they don't break out.
-- **XSS-safe** — raw HTML in conversations is escaped, and `javascript:`-style links are dropped. Images are not rendered, so opening an export never fetches a remote URL.
+- **XSS-safe** — raw HTML in conversations is escaped, and `javascript:`-style links are dropped. Images are embedded as data, never loaded from a URL, so opening an export never fetches anything.
 
 ## Privacy
 
@@ -90,7 +91,8 @@ If a claude.ai tab was open before you installed the extension, the first export
 
 ### Limitations
 
-- Images and files are listed by name; their contents aren't exported. Only text claude.ai extracted from documents is.
+- Images are exported at claude.ai's preview size (about 1000px), not as the original upload, which claude.ai doesn't make available. Other files are listed by name; only text claude.ai extracted from documents is exported.
+- Chrome caps the data passed to the print tab at 10 MB, so a PDF of a conversation with very many images (roughly 100 or more) fails. HTML export has no such limit.
 - Thinking is included in Markdown and HTML exports (collapsed), but hidden in PDFs. When claude.ai only kept a summary of the thinking, the summary is exported, labelled "Thinking (summary)".
 - **Copy as HTML** copies the HTML source as text. Use **Copy formatted** to paste formatted text.
 - claude.ai's API is undocumented, so a change on their side can break exports until the extension is updated.
@@ -99,7 +101,7 @@ If a claude.ai tab was open before you installed the extension, the first export
 
 claude.ai exposes a cookie-authenticated JSON API at `/api/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages`. Because the extension's content script runs on the `claude.ai` origin, your browser cookies are sent automatically — no token handling, no OAuth, no storage of credentials. The org is taken from claude.ai's `lastActiveOrg` cookie, falling back to each of your other orgs in turn.
 
-The full message tree is fetched and converted into a **transcript**: the active branch (using `current_leaf_message_uuid`), with each message's content blocks (text, thinking, images, artifacts, tool calls and results) and attachments in a simple, documented shape. Every output format is a pure function of that transcript.
+The full message tree is fetched and converted into a **transcript**: the active branch (using `current_leaf_message_uuid`), with each message's content blocks (text, thinking, images, artifacts, tool calls and results) and attachments in a simple, documented shape. Every output format is a pure function of that transcript. For HTML-based formats, image previews are first fetched from claude.ai (with your session, as the page itself does) and embedded.
 
 For PDF specifically: rather than rasterizing the live claude.ai page (which produces poor output because their CSS isn't print-tuned), the extension generates its own standalone HTML with a print-optimized stylesheet, opens it in a new tab, and triggers `window.print()`. Result: vector text, real pagination, and turns kept on one page where they fit.
 
@@ -120,6 +122,7 @@ src/
 ├── transcript/
 │   ├── types.ts             # The Transcript format every formatter consumes
 │   ├── from-claude.ts       # claude.ai API → Transcript (the only code that knows the API shape)
+│   ├── images.ts            # Embeds image previews, given a fetcher
 │   └── options.ts           # Export options and applyOptions (thinking, attachment text)
 ├── formatters/
 │   ├── shared.ts            # Escaping, fence picking, labels, timestamps
@@ -133,10 +136,12 @@ src/
 ```
 
 ```
-claude.ai JSON ──toTranscript──▶ Transcript ──applyOptions──▶ Transcript ──formatter──▶ .md / .html / .json / .txt / clipboard
+claude.ai JSON ──toTranscript──▶ Transcript ──applyOptions──▶ Transcript ──embedImages¹──▶ Transcript ──formatter──▶ .md / .html / .json / .txt / clipboard
 ```
 
-The converter and formatters are **pure functions**: no I/O, no DOM, no `chrome.*` APIs. When claude.ai changes its API, only `transcript/from-claude.ts` should need to change.
+¹ HTML-based formats only.
+
+The converter and formatters are **pure functions**: no I/O, no DOM, no `chrome.*` APIs. `embedImages` is handed its fetcher, so it's tested without a network. When claude.ai changes its API, only `transcript/from-claude.ts` should need to change.
 
 ### The Transcript format
 
@@ -147,7 +152,7 @@ Defined in [`src/transcript/types.ts`](./src/transcript/types.ts), and exported 
 - **Block**, by `kind`:
     - `text`: with `format` `markdown` (Claude's replies) or `plain` (your messages, shown verbatim);
     - `thinking`: with `summarized` when only a summary was kept;
-    - `image`: a reference by name; the image itself isn't exported;
+    - `image`: the file's name, and its claude.ai preview `url` and `width` / `height` when known (`dataUrl` holds the image itself only inside HTML-based exports);
     - `artifact`: the full content at that point, with `version` and `partial` (only an edit was available);
     - `tool_use` (raw `input`), `tool_result`, and `unknown` for block types this version doesn't know.
 - **Attachment**: `name`, optional `size` / `mimeType` / `extractedText`, and `source` (`upload` or `file`).
@@ -202,6 +207,7 @@ Unit tests cover:
 - Branched conversation trees (only the active branch is rendered).
 - HTML escaping (XSS-safe rendering of arbitrary user content), including raw HTML, `javascript:` links and images inside Claude's Markdown.
 - Converting claude.ai data into the transcript, including artifact versions, thinking summaries, inline images and attachments.
+- Embedding images: only claude.ai URLs are fetched, and only `data:image/…` ever reaches an `<img>`.
 - Each output format, including the JSON round trip and the formatted-copy fragment.
 - Finding a conversation across multiple organizations (personal + Team/Enterprise).
 - Code-fence collision (backticks inside content force the fence to grow).

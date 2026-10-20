@@ -5,6 +5,7 @@ import type {
     ContentBlock,
     FileAttachment,
 } from '../content/types';
+import { CLAUDE_ORIGIN } from '../content/api';
 import { safeStringify } from '../util';
 import type { ArtifactBlock, Attachment, Block, Role, Transcript, Turn } from './types';
 
@@ -94,7 +95,18 @@ const toBlocks = (
     if (type === 'image') {
         const fileId = str((block as { file_uuid?: unknown }).file_uuid);
         if (fileId === undefined) return [];
-        return [{ kind: 'image', fileId, name: files.get(fileId)?.file_name || 'image' }];
+        const file = files.get(fileId);
+        const preview = file?.preview_asset;
+        return [
+            {
+                kind: 'image',
+                fileId,
+                name: file?.file_name || 'image',
+                ...optional('url', claudeUrl(preview?.url ?? file?.preview_url)),
+                ...optional('width', num(preview?.image_width)),
+                ...optional('height', num(preview?.image_height)),
+            },
+        ];
     }
 
     if (type === 'tool_use') {
@@ -170,6 +182,17 @@ const fromFile = (f: FileAttachment): Attachment => ({
     ...optional('size', num(f.size_bytes) ?? num(f.file_size)),
     source: 'file',
 });
+
+/** An absolute claude.ai URL from an API path; anything resolving elsewhere is dropped. */
+const claudeUrl = (path: unknown): string | undefined => {
+    if (typeof path !== 'string' || path === '') return undefined;
+    try {
+        const url = new URL(path, CLAUDE_ORIGIN);
+        return url.origin === CLAUDE_ORIGIN ? url.href : undefined;
+    } catch {
+        return undefined;
+    }
+};
 
 const stringifyToolResult = (content: unknown): string => {
     if (typeof content === 'string') return content;
