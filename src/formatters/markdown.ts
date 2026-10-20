@@ -1,23 +1,23 @@
-import type { ChatConversation, ChatMessage, ExportOptions } from '../content/types';
-import { pickFence, renderConversation, type RenderedFragment } from './shared';
+import type { Block, Transcript, Turn } from '../transcript/types';
+import { artifactLabel, pickFence, safeStringify } from './shared';
 
-export const toMarkdown = (conversation: ChatConversation, options: ExportOptions): string => {
+export const toMarkdown = (t: Transcript): string => {
     const parts: string[] = [];
 
-    parts.push(`# ${conversation.name || 'Claude conversation'}`);
+    parts.push(`# ${t.title}`);
     parts.push('');
-    if (conversation.created_at) parts.push(`_Created: ${conversation.created_at}_`);
-    if (conversation.updated_at) parts.push(`_Updated: ${conversation.updated_at}_`);
+    if (t.createdAt) parts.push(`_Created: ${t.createdAt}_`);
+    if (t.updatedAt) parts.push(`_Updated: ${t.updatedAt}_`);
     parts.push('');
 
-    for (const { msg, fragments } of renderConversation(conversation, options)) {
-        parts.push(roleHeader(msg));
+    for (const turn of t.turns) {
+        parts.push(turn.role === 'human' ? '## Human' : '## Assistant');
         parts.push('');
-        for (const frag of fragments) {
-            parts.push(renderFragment(frag));
+        for (const block of turn.blocks) {
+            parts.push(renderBlock(block));
             parts.push('');
         }
-        const attachments = renderAttachments(msg);
+        const attachments = renderAttachments(turn);
         if (attachments) {
             parts.push(attachments);
             parts.push('');
@@ -34,51 +34,42 @@ export const toMarkdown = (conversation: ChatConversation, options: ExportOption
     );
 };
 
-const roleHeader = (msg: ChatMessage): string =>
-    msg.sender === 'human' ? '## Human' : '## Assistant';
-
-const renderFragment = (frag: RenderedFragment): string => {
-    switch (frag.kind) {
+const renderBlock = (block: Block): string => {
+    switch (block.kind) {
         case 'text':
-            return frag.text;
+            return block.text;
         case 'thinking':
-            return `<details><summary>Thinking</summary>\n\n${frag.text}\n\n</details>`;
-        case 'code': {
-            const fence = pickFence(frag.text);
-            const lang = frag.language || '';
-            const header = frag.title ? `\n_${frag.title}_\n` : '';
-            return `${header}${fence}${lang}\n${frag.text}\n${fence}`;
+            return `<details><summary>Thinking</summary>\n\n${block.text}\n\n</details>`;
+        case 'artifact': {
+            const fence = pickFence(block.content);
+            const label = artifactLabel(block);
+            const header = label ? `\n_${label}_\n` : '';
+            return `${header}${fence}${block.language}\n${block.content}\n${fence}`;
         }
         case 'tool_use': {
-            const fence = pickFence(frag.input);
-            return `**Tool call: \`${frag.name}\`**\n\n${fence}json\n${frag.input}\n${fence}`;
+            const input = safeStringify(block.input);
+            const fence = pickFence(input);
+            return `**Tool call: \`${block.name}\`**\n\n${fence}json\n${input}\n${fence}`;
         }
         case 'tool_result': {
-            const fence = pickFence(frag.text);
-            const label = frag.isError ? 'Tool error' : 'Tool result';
-            return `**${label}**\n\n${fence}\n${frag.text}\n${fence}`;
+            const fence = pickFence(block.text);
+            const label = block.isError ? 'Tool error' : 'Tool result';
+            return `**${label}**\n\n${fence}\n${block.text}\n${fence}`;
         }
         case 'unknown': {
-            const fence = pickFence(frag.text);
-            return `**Unknown block (\`${frag.type}\`)**\n\n${fence}json\n${frag.text}\n${fence}`;
+            const raw = safeStringify(block.raw);
+            const fence = pickFence(raw);
+            return `**Unknown block (\`${block.type}\`)**\n\n${fence}json\n${raw}\n${fence}`;
         }
     }
 };
 
-const renderAttachments = (msg: ChatMessage): string | null => {
-    const atts = msg.attachments ?? [];
-    const files = msg.files ?? [];
-    if (atts.length === 0 && files.length === 0) return null;
+const renderAttachments = (turn: Turn): string | null => {
+    if (turn.attachments.length === 0) return null;
     const lines = ['**Attachments:**'];
-    for (const a of atts) {
-        const name = a.file_name ?? 'unnamed';
-        const size = typeof a.file_size === 'number' ? ` (${a.file_size} bytes)` : '';
-        lines.push(`- ${name}${size}`);
-    }
-    for (const f of files) {
-        const name = f.file_name ?? 'unnamed';
-        const size = typeof f.file_size === 'number' ? ` (${f.file_size} bytes)` : '';
-        lines.push(`- ${name}${size}`);
+    for (const a of turn.attachments) {
+        const size = a.size === undefined ? '' : ` (${a.size} bytes)`;
+        lines.push(`- ${a.name}${size}`);
     }
     return lines.join('\n');
 };

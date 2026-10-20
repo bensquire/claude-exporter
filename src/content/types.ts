@@ -87,6 +87,7 @@ export interface ChatConversation {
     summary?: string;
     created_at?: string;
     updated_at?: string;
+    model?: unknown;
     current_leaf_message_uuid?: string | null;
     chat_messages: ChatMessage[];
 }
@@ -95,13 +96,3 @@ export interface Organization {
     uuid: string;
     name?: string;
 }
-
-export interface ExportOptions {
-    includeThinking: boolean;
-    embedAttachments: boolean;
-}
-
-export const defaultExportOptions: ExportOptions = {
-    includeThinking: true,
-    embedAttachments: true,
-};

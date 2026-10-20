@@ -1,6 +1,6 @@
 import MarkdownIt from 'markdown-it';
-import type { ChatConversation, ChatMessage, ExportOptions, MessageSender } from '../content/types';
-import { escapeHtml, renderConversation, type RenderedFragment } from './shared';
+import type { Block, Transcript, Turn } from '../transcript/types';
+import { artifactLabel, escapeHtml, safeStringify } from './shared';
 
 // `html: false` escapes raw HTML and markdown-it drops javascript:/data: links.
 // Images are off so opening an export never fetches a remote URL. Built lazily
@@ -11,17 +11,17 @@ const renderMarkdown = (text: string): string => {
     return md.render(text).trimEnd();
 };
 
-export const toHtml = (conversation: ChatConversation, options: ExportOptions): string => {
-    const title = escapeHtml(conversation.name || 'Claude conversation');
+export const toHtml = (t: Transcript): string => {
+    const title = escapeHtml(t.title);
 
-    const body = renderConversation(conversation, options)
-        .map(({ msg, fragments: frags }) => {
-            const fragments = frags.map((frag) => renderFragment(frag, msg.sender)).join('\n');
-            const attachments = renderAttachments(msg);
-            return `<section class="turn turn-${msg.sender}">
-  <header class="turn-header">${msg.sender === 'human' ? 'Human' : 'Assistant'}</header>
+    const body = t.turns
+        .map((turn) => {
+            const blocks = turn.blocks.map(renderBlock).join('\n');
+            const attachments = renderAttachments(turn);
+            return `<section class="turn turn-${turn.role}">
+  <header class="turn-header">${turn.role === 'human' ? 'Human' : 'Assistant'}</header>
   <div class="turn-body">
-${fragments}
+${blocks}
 ${attachments ?? ''}
   </div>
 </section>`;
@@ -38,7 +38,7 @@ ${attachments ?? ''}
 <body>
 <main>
   <h1>${title}</h1>
-  ${conversation.created_at ? `<p class="meta">Created ${escapeHtml(conversation.created_at)}</p>` : ''}
+  ${t.createdAt ? `<p class="meta">Created ${escapeHtml(t.createdAt)}</p>` : ''}
   ${body}
 </main>
 </body>
@@ -46,28 +46,26 @@ ${attachments ?? ''}
 `;
 };
 
-const renderFragment = (frag: RenderedFragment, sender: MessageSender): string => {
-    switch (frag.kind) {
+const renderBlock = (block: Block): string => {
+    switch (block.kind) {
         case 'text':
-            // Matches claude.ai, which shows human messages verbatim.
-            return sender === 'assistant'
-                ? `<div class="text markdown">${renderMarkdown(frag.text)}</div>`
-                : `<div class="text">${paragraphs(frag.text)}</div>`;
+            return block.format === 'markdown'
+                ? `<div class="text markdown">${renderMarkdown(block.text)}</div>`
+                : `<div class="text">${paragraphs(block.text)}</div>`;
         case 'thinking':
-            return `<details class="thinking"><summary>Thinking</summary><pre>${escapeHtml(frag.text)}</pre></details>`;
-        case 'code': {
-            const lang = escapeHtml(frag.language || '');
-            const title = frag.title
-                ? `<div class="code-title">${escapeHtml(frag.title)}</div>`
-                : '';
-            return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(frag.text)}</code></pre>`;
+            return `<details class="thinking"><summary>Thinking</summary><pre>${escapeHtml(block.text)}</pre></details>`;
+        case 'artifact': {
+            const lang = escapeHtml(block.language);
+            const label = artifactLabel(block);
+            const title = label ? `<div class="code-title">${escapeHtml(label)}</div>` : '';
+            return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(block.content)}</code></pre>`;
         }
         case 'tool_use':
-            return `<div class="tool-use"><div class="tool-label">Tool call: <code>${escapeHtml(frag.name)}</code></div><pre><code>${escapeHtml(frag.input)}</code></pre></div>`;
+            return `<div class="tool-use"><div class="tool-label">Tool call: <code>${escapeHtml(block.name)}</code></div><pre><code>${escapeHtml(safeStringify(block.input))}</code></pre></div>`;
         case 'tool_result':
-            return `<div class="tool-result ${frag.isError ? 'is-error' : ''}"><div class="tool-label">${frag.isError ? 'Tool error' : 'Tool result'}</div><pre><code>${escapeHtml(frag.text)}</code></pre></div>`;
+            return `<div class="tool-result ${block.isError ? 'is-error' : ''}"><div class="tool-label">${block.isError ? 'Tool error' : 'Tool result'}</div><pre><code>${escapeHtml(block.text)}</code></pre></div>`;
         case 'unknown':
-            return `<div class="unknown"><div class="tool-label">Unknown block (${escapeHtml(frag.type)})</div><pre><code>${escapeHtml(frag.text)}</code></pre></div>`;
+            return `<div class="unknown"><div class="tool-label">Unknown block (${escapeHtml(block.type)})</div><pre><code>${escapeHtml(safeStringify(block.raw))}</code></pre></div>`;
     }
 };
 
@@ -77,27 +75,12 @@ const paragraphs = (text: string): string =>
         .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
         .join('\n');
 
-const renderAttachments = (msg: ChatMessage): string | null => {
-    const atts = msg.attachments ?? [];
-    const files = msg.files ?? [];
-    if (atts.length === 0 && files.length === 0) return null;
-    const items: string[] = [];
-    for (const a of atts) {
-        const name = escapeHtml(a.file_name ?? 'unnamed');
-        const size =
-            typeof a.file_size === 'number'
-                ? ` <span class="size">(${a.file_size} bytes)</span>`
-                : '';
-        items.push(`<li>${name}${size}</li>`);
-    }
-    for (const f of files) {
-        const name = escapeHtml(f.file_name ?? 'unnamed');
-        const size =
-            typeof f.file_size === 'number'
-                ? ` <span class="size">(${f.file_size} bytes)</span>`
-                : '';
-        items.push(`<li>${name}${size}</li>`);
-    }
+const renderAttachments = (turn: Turn): string | null => {
+    if (turn.attachments.length === 0) return null;
+    const items = turn.attachments.map((a) => {
+        const size = a.size === undefined ? '' : ` <span class="size">(${a.size} bytes)</span>`;
+        return `<li>${escapeHtml(a.name)}${size}</li>`;
+    });
     return `<div class="attachments"><div class="tool-label">Attachments</div><ul>${items.join('')}</ul></div>`;
 };
 

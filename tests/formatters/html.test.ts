@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { toHtml } from '../../src/formatters/html';
-import { defaultExportOptions } from '../../src/content/types';
+import { exportHtml } from '../helpers';
 import { richConversation, simpleConversation } from '../fixtures/simple';
 
 describe('toHtml', () => {
     it('produces a complete standalone document', () => {
-        const html = toHtml(simpleConversation, defaultExportOptions);
+        const html = exportHtml(simpleConversation);
         expect(html.startsWith('<!doctype html>')).toBe(true);
         expect(html).toContain('<title>Hello world</title>');
         expect(html).toContain('<style>');
@@ -13,7 +12,7 @@ describe('toHtml', () => {
     });
 
     it('escapes the conversation title and content', () => {
-        const html = toHtml(richConversation, defaultExportOptions);
+        const html = exportHtml(richConversation);
         expect(html).toContain('Rich content with `backticks` and &lt;html&gt;');
         expect(html).toContain('Done — see &lt;above&gt;.');
         expect(html).not.toContain('<above>');
@@ -33,29 +32,26 @@ describe('toHtml', () => {
             ],
             current_leaf_message_uuid: 'e1',
         };
-        const html = toHtml(evil, defaultExportOptions);
+        const html = exportHtml(evil);
         expect(html).not.toMatch(/<script>alert\(1\)<\/script>/);
         expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     });
 
     describe('markdown rendering', () => {
         const withText = (sender: 'human' | 'assistant', text: string) =>
-            toHtml(
-                {
-                    ...simpleConversation,
-                    current_leaf_message_uuid: 'x1',
-                    chat_messages: [
-                        {
-                            uuid: 'x1',
-                            sender,
-                            index: 0,
-                            parent_message_uuid: null,
-                            content: [{ type: 'text', text }],
-                        },
-                    ],
-                },
-                defaultExportOptions,
-            );
+            exportHtml({
+                ...simpleConversation,
+                current_leaf_message_uuid: 'x1',
+                chat_messages: [
+                    {
+                        uuid: 'x1',
+                        sender,
+                        index: 0,
+                        parent_message_uuid: null,
+                        content: [{ type: 'text', text }],
+                    },
+                ],
+            });
 
         it('renders assistant markdown: code fences, lists, tables', () => {
             const html = withText(
@@ -91,12 +87,12 @@ describe('toHtml', () => {
     });
 
     it('renders attachments list', () => {
-        const html = toHtml(richConversation, defaultExportOptions);
+        const html = exportHtml(richConversation);
         expect(html).toContain('Attachments');
         expect(html).toContain('spec.pdf');
     });
 
     it('snapshots simple conversation', () => {
-        expect(toHtml(simpleConversation, defaultExportOptions)).toMatchSnapshot();
+        expect(exportHtml(simpleConversation)).toMatchSnapshot();
     });
 });
