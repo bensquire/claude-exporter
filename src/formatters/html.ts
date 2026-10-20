@@ -1,6 +1,18 @@
 import MarkdownIt from 'markdown-it';
-import type { ChatConversation, ChatMessage, ExportOptions, MessageSender } from '../content/types';
-import { escapeHtml, renderConversation, type RenderedFragment } from './shared';
+import type { Block, ImageBlock, Transcript, Turn } from '../transcript/types';
+import { safeStringify } from '../util';
+import {
+    artifactLabel,
+    escapeHtml,
+    formatSize,
+    formatTime,
+    imageLabel,
+    roleLabel,
+    thinkingLabel,
+    toolCallLabel,
+    toolResultLabel,
+    unknownBlockLabel,
+} from './shared';
 
 // `html: false` escapes raw HTML and markdown-it drops javascript:/data: links.
 // Images are off so opening an export never fetches a remote URL. Built lazily
@@ -11,65 +23,120 @@ const renderMarkdown = (text: string): string => {
     return md.render(text).trimEnd();
 };
 
-export const toHtml = (conversation: ChatConversation, options: ExportOptions): string => {
-    const title = escapeHtml(conversation.name || 'Claude conversation');
+export const toHtml = (t: Transcript): string => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(t.title)}</title>
+<style>${STYLES}</style>
+</head>
+<body>
+<main>
+  ${toHtmlFragment(t)}
+</main>
+</body>
+</html>
+`;
 
-    const body = renderConversation(conversation, options)
-        .map(({ msg, fragments: frags }) => {
-            const fragments = frags.map((frag) => renderFragment(frag, msg.sender)).join('\n');
-            const attachments = renderAttachments(msg);
-            return `<section class="turn turn-${msg.sender}">
-  <header class="turn-header">${msg.sender === 'human' ? 'Human' : 'Assistant'}</header>
+/** The conversation without a document or styles, for pasting into rich-text editors. */
+export const toHtmlFragment = (t: Transcript): string => {
+    const body = t.turns
+        .map((turn) => {
+            const blocks = renderBlocks(turn.blocks);
+            const attachments = renderAttachments(turn);
+            return `<section class="turn turn-${turn.role}">
+  <header class="turn-header">${roleLabel(turn.role)}${turnTime(turn)}</header>
   <div class="turn-body">
-${fragments}
+${blocks}
 ${attachments ?? ''}
   </div>
 </section>`;
         })
         .join('\n');
 
-    return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${title}</title>
-<style>${STYLES}</style>
-</head>
-<body>
-<main>
-  <h1>${title}</h1>
-  ${conversation.created_at ? `<p class="meta">Created ${escapeHtml(conversation.created_at)}</p>` : ''}
-  ${body}
-</main>
-</body>
-</html>
-`;
+    return `<h1>${escapeHtml(t.title)}</h1>
+  ${t.createdAt ? `<p class="meta">Created ${escapeHtml(formatTime(t.createdAt))}</p>` : ''}
+  ${body}`;
 };
 
-const renderFragment = (frag: RenderedFragment, sender: MessageSender): string => {
-    switch (frag.kind) {
+/** Consecutive images share a row, as on claude.ai. */
+const renderBlocks = (blocks: Block[]): string =>
+    groupImages(blocks)
+        .map((group) =>
+            Array.isArray(group)
+                ? `<div class="images">${group.map(renderImage).join('')}</div>`
+                : renderBlock(group),
+        )
+        .join('\n');
+
+const groupImages = (blocks: Block[]): (Block | ImageBlock[])[] => {
+    const groups: (Block | ImageBlock[])[] = [];
+    for (const block of blocks) {
+        const last = groups.at(-1);
+        if (block.kind !== 'image') groups.push(block);
+        else if (Array.isArray(last)) last.push(block);
+        else groups.push([block]);
+    }
+    return groups;
+};
+
+const renderBlock = (block: Block): string => {
+    switch (block.kind) {
         case 'text':
-            // Matches claude.ai, which shows human messages verbatim.
-            return sender === 'assistant'
-                ? `<div class="text markdown">${renderMarkdown(frag.text)}</div>`
-                : `<div class="text">${paragraphs(frag.text)}</div>`;
+            return block.format === 'markdown'
+                ? `<div class="text markdown">${renderMarkdown(block.text)}</div>`
+                : `<div class="text">${paragraphs(block.text)}</div>`;
         case 'thinking':
-            return `<details class="thinking"><summary>Thinking</summary><pre>${escapeHtml(frag.text)}</pre></details>`;
-        case 'code': {
-            const lang = escapeHtml(frag.language || '');
-            const title = frag.title
-                ? `<div class="code-title">${escapeHtml(frag.title)}</div>`
-                : '';
-            return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(frag.text)}</code></pre>`;
+            return `<details class="thinking"><summary>${thinkingLabel(block.summarized)}</summary><pre>${escapeHtml(block.text)}</pre></details>`;
+        case 'image':
+            return renderImage(block);
+        case 'artifact': {
+            const lang = escapeHtml(block.language);
+            const label = artifactLabel(block);
+            const title = label ? `<div class="code-title">${escapeHtml(label)}</div>` : '';
+            return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(block.content)}</code></pre>`;
         }
         case 'tool_use':
-            return `<div class="tool-use"><div class="tool-label">Tool call: <code>${escapeHtml(frag.name)}</code></div><pre><code>${escapeHtml(frag.input)}</code></pre></div>`;
+            return labelledCode(
+                'tool-use',
+                toolCallLabel(`<code>${escapeHtml(block.name)}</code>`),
+                safeStringify(block.input),
+            );
         case 'tool_result':
-            return `<div class="tool-result ${frag.isError ? 'is-error' : ''}"><div class="tool-label">${frag.isError ? 'Tool error' : 'Tool result'}</div><pre><code>${escapeHtml(frag.text)}</code></pre></div>`;
+            return labelledCode(
+                `tool-result ${block.isError ? 'is-error' : ''}`,
+                toolResultLabel(block.isError),
+                block.text,
+            );
         case 'unknown':
-            return `<div class="unknown"><div class="tool-label">Unknown block (${escapeHtml(frag.type)})</div><pre><code>${escapeHtml(frag.text)}</code></pre></div>`;
+            return labelledCode(
+                'unknown',
+                unknownBlockLabel(escapeHtml(block.type)),
+                safeStringify(block.raw),
+            );
     }
 };
+
+/** `labelHtml` must already be escaped. */
+const labelledCode = (cls: string, labelHtml: string, text: string): string =>
+    `<div class="${cls}"><div class="tool-label">${labelHtml}</div><pre><code>${escapeHtml(text)}</code></pre></div>`;
+
+const renderImage = (img: ImageBlock): string => {
+    // Only inline data, so opening an export never fetches anything.
+    if (img.dataUrl?.startsWith('data:image/')) {
+        const size = img.width && img.height ? ` width="${img.width}" height="${img.height}"` : '';
+        return `<figure class="image"><img src="${escapeHtml(img.dataUrl)}" alt="${escapeHtml(img.name)}"${size}></figure>`;
+    }
+    const label = escapeHtml(imageLabel(img.name));
+    return img.url
+        ? `<p class="image-ref"><a href="${escapeHtml(img.url)}">${label}</a></p>`
+        : `<p class="image-ref">${label}</p>`;
+};
+
+const turnTime = (turn: Turn): string =>
+    turn.createdAt
+        ? ` <time datetime="${escapeHtml(turn.createdAt)}">${escapeHtml(formatTime(turn.createdAt))}</time>`
+        : '';
 
 const paragraphs = (text: string): string =>
     text
@@ -77,27 +144,15 @@ const paragraphs = (text: string): string =>
         .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
         .join('\n');
 
-const renderAttachments = (msg: ChatMessage): string | null => {
-    const atts = msg.attachments ?? [];
-    const files = msg.files ?? [];
-    if (atts.length === 0 && files.length === 0) return null;
-    const items: string[] = [];
-    for (const a of atts) {
-        const name = escapeHtml(a.file_name ?? 'unnamed');
-        const size =
-            typeof a.file_size === 'number'
-                ? ` <span class="size">(${a.file_size} bytes)</span>`
-                : '';
-        items.push(`<li>${name}${size}</li>`);
-    }
-    for (const f of files) {
-        const name = escapeHtml(f.file_name ?? 'unnamed');
-        const size =
-            typeof f.file_size === 'number'
-                ? ` <span class="size">(${f.file_size} bytes)</span>`
-                : '';
-        items.push(`<li>${name}${size}</li>`);
-    }
+const renderAttachments = (turn: Turn): string | null => {
+    if (turn.attachments.length === 0) return null;
+    const items = turn.attachments.map((a) => {
+        const size = a.size === undefined ? '' : ` <span class="size">${formatSize(a.size)}</span>`;
+        const label = `${escapeHtml(a.name)}${size}`;
+        return a.extractedText === undefined
+            ? `<li>${label}</li>`
+            : `<li><details><summary>${label}</summary><pre>${escapeHtml(a.extractedText)}</pre></details></li>`;
+    });
     return `<div class="attachments"><div class="tool-label">Attachments</div><ul>${items.join('')}</ul></div>`;
 };
 
@@ -146,7 +201,7 @@ const STYLES = `
   .turn-body { padding: 1rem; }
   .turn-body > * + * { margin-top: 0.75rem; }
   p { margin: 0.5rem 0; }
-  pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre, .thinking pre {
+  .turn-body pre {
     background: var(--bg-code);
     color: var(--fg-code);
     padding: 0.75rem 1rem;
@@ -183,6 +238,24 @@ const STYLES = `
   .tool-result.is-error pre { border-left: 3px solid #dc2626; }
   .attachments ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
   .attachments .size { color: var(--fg-muted); font-size: 0.85em; }
+  .attachments summary { cursor: pointer; }
+  .attachments li:has(> details) { list-style: none; margin-left: -1rem; }
+  .turn-header time { float: right; font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .image-ref { color: var(--fg-muted); font-style: italic; }
+  .image-ref a { color: inherit; }
+  .images { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-start; }
+  .images .image-ref { margin: 0; }
+  figure.image { margin: 0; break-inside: avoid; }
+  figure.image img {
+    display: block;
+    max-width: 100%;
+    max-height: 20rem;
+    width: auto;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .images > figure:only-child img { max-height: 32rem; }
   details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
   details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
 
@@ -191,7 +264,7 @@ const STYLES = `
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
     details.thinking { display: none; }
-    pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre {
+    .turn-body pre {
       background: #f6f8fa;
       color: #111;
       border: 1px solid #e4e4e7;

@@ -3,7 +3,7 @@
 exports[`toMarkdown > produces stable output (snapshot) 1`] = `
 "# Hello world
 
-_Created: 2026-04-01T10:00:00Z_
+_Created: 2026-04-01 10:00 UTC_
 
 ## Human
 

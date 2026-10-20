@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { toMarkdown } from '../src/formatters/markdown';
-import { toHtml } from '../src/formatters/html';
-import { defaultExportOptions, type ChatConversation } from '../src/content/types';
+import { conversationOf, exportHtml, exportMarkdown } from './helpers';
+import type { ChatConversation } from '../src/content/types';
 import { extractConversationUuid } from '../src/content/api';
 
 const empty: ChatConversation = {
@@ -13,9 +12,9 @@ const empty: ChatConversation = {
 
 describe('edge cases', () => {
     it('handles an empty conversation without throwing', () => {
-        expect(() => toMarkdown(empty, defaultExportOptions)).not.toThrow();
-        expect(() => toHtml(empty, defaultExportOptions)).not.toThrow();
-        expect(toMarkdown(empty, defaultExportOptions)).toContain('# Empty');
+        expect(() => exportMarkdown(empty)).not.toThrow();
+        expect(() => exportHtml(empty)).not.toThrow();
+        expect(exportMarkdown(empty)).toContain('# Empty');
     });
 
     it('handles a single message', () => {
@@ -33,7 +32,7 @@ describe('edge cases', () => {
                 },
             ],
         };
-        expect(toMarkdown(single, defaultExportOptions)).toContain('only message');
+        expect(exportMarkdown(single)).toContain('only message');
     });
 
     it('handles unicode and emoji', () => {
@@ -51,8 +50,8 @@ describe('edge cases', () => {
                 },
             ],
         };
-        expect(toMarkdown(u, defaultExportOptions)).toContain('你好 👋 — שלום');
-        expect(toHtml(u, defaultExportOptions)).toContain('Unicode 🌍');
+        expect(exportMarkdown(u)).toContain('你好 👋 — שלום');
+        expect(exportHtml(u)).toContain('Unicode 🌍');
     });
 
     it('handles missing optional message fields', () => {
@@ -69,24 +68,17 @@ describe('edge cases', () => {
                 } as never,
             ],
         };
-        expect(() => toMarkdown(m, defaultExportOptions)).not.toThrow();
+        expect(() => exportMarkdown(m)).not.toThrow();
     });
 
     it('handles a long conversation', () => {
-        const messages = Array.from({ length: 200 }, (_, i) => ({
-            uuid: `m${i}`,
-            sender: i % 2 === 0 ? ('human' as const) : ('assistant' as const),
-            index: i,
-            parent_message_uuid: i === 0 ? null : `m${i - 1}`,
-            content: [{ type: 'text' as const, text: `message ${i}` }],
-        }));
-        const long: ChatConversation = {
-            uuid: 'l',
-            name: 'Long',
-            current_leaf_message_uuid: 'm199',
-            chat_messages: messages,
-        };
-        const md = toMarkdown(long, defaultExportOptions);
+        const long = conversationOf(
+            ...Array.from({ length: 200 }, (_, i) => ({
+                sender: i % 2 === 0 ? ('human' as const) : ('assistant' as const),
+                content: [{ type: 'text' as const, text: `message ${i}` }],
+            })),
+        );
+        const md = exportMarkdown(long);
         expect(md).toContain('message 0');
         expect(md).toContain('message 199');
     });

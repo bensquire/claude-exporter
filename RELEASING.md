@@ -11,52 +11,62 @@ git push --follow-tags
 
 ## One-time setup
 
-### 1. First submission (manual)
+### 1. First submission (manual) — done
 
-The API can only update an item that already exists, so the first version goes up by hand:
+The API can only update an item that already exists, so the first version went up by hand. The item ID is `hebhnhibdecijopliikejmojkpkcelbc` ([listing](https://chromewebstore.google.com/detail/claude-exporter/hebhnhibdecijopliikejmojkpkcelbc)); the publisher ID is under **Publisher > Settings** in the Developer Dashboard. For reference, the steps were:
 
 1. `npm ci && npm run build && (cd dist && zip -qrX ../claude-exporter.zip .)`
 2. In the [Developer Dashboard](https://chrome.google.com/webstore/devconsole), add a new item and upload the zip.
 3. Fill in the **Store listing** and **Privacy** tabs and submit.
 4. Note the item ID, and the publisher ID from **Publisher > Settings**.
 
-### 2. Google Cloud service account
+### 2. Google Cloud service account (done)
 
-The workflow authenticates with [Workload Identity Federation](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account), so there's no key or refresh token stored in GitHub. Only tag pushes from this repo can get a token.
+The workflow authenticates with [Workload Identity Federation](https://github.com/google-github-actions/auth#workload-identity-federation-through-a-service-account), so no key or refresh token is stored in GitHub.
+
+A Chrome Web Store publisher can have only one service account, so it lives in a shared project, `squired-development`, and serves every extension the publisher releases. The GitHub provider accepts tag pushes (`refs/tags/v*`) from any repo owned by `bensquire` (matched by owner ID, which survives renames). Each repo must also be granted the service account explicitly; this repo is.
+
+The commands used, for reference:
 
 ```bash
-PROJECT_ID=your-project
+PROJECT_ID=squired-development
 PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
-REPO=bensquire/claude-exporter
-
-gcloud services enable chromewebstore.googleapis.com iamcredentials.googleapis.com --project=$PROJECT_ID
-
-gcloud iam service-accounts create chrome-web-store --project=$PROJECT_ID
+OWNER_ID=$(gh api users/bensquire --jq .id)
 SA=chrome-web-store@$PROJECT_ID.iam.gserviceaccount.com
 
+gcloud services enable chromewebstore.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project=$PROJECT_ID
+# A new project can take a few minutes before the pool commands below stop failing with PERMISSION_DENIED.
+
+gcloud iam service-accounts create chrome-web-store --project=$PROJECT_ID
+
 gcloud iam workload-identity-pools create github --project=$PROJECT_ID --location=global
-gcloud iam workload-identity-pools providers create-oidc claude-exporter \
+gcloud iam workload-identity-pools providers create-oidc github \
     --project=$PROJECT_ID --location=global --workload-identity-pool=github \
     --issuer-uri=https://token.actions.githubusercontent.com \
-    --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
-    --attribute-condition="assertion.repository=='$REPO' && assertion.ref.startsWith('refs/tags/v')"
+    --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner_id=assertion.repository_owner_id \
+    --attribute-condition="assertion.repository_owner_id=='$OWNER_ID' && assertion.ref.startsWith('refs/tags/v')"
+```
 
+To let a repo publish (run once per repo):
+
+```bash
+REPO=bensquire/claude-exporter
 gcloud iam service-accounts add-iam-policy-binding $SA --project=$PROJECT_ID \
     --role=roles/iam.workloadIdentityUser \
     --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/$REPO"
 ```
 
-Then add the service account's email under **Account** in the Developer Dashboard. A publisher can only have one service account.
+Then add the service account's email under **Account** in the Developer Dashboard.
 
 ### 3. GitHub repository variables
 
 Under **Settings > Secrets and variables > Actions > Variables**, add:
 
-| Variable                         | Value                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `CWS_PUBLISHER_ID`               | Publisher ID from the dashboard                                                                     |
-| `CWS_EXTENSION_ID`               | Item ID from the first submission                                                                   |
-| `GCP_SERVICE_ACCOUNT`            | `chrome-web-store@<project>.iam.gserviceaccount.com`                                                |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/<project-number>/locations/global/workloadIdentityPools/github/providers/claude-exporter` |
+| Variable                         | Value                                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| `CWS_PUBLISHER_ID`               | Publisher ID from the dashboard                                                        |
+| `CWS_EXTENSION_ID`               | Item ID from the first submission                                                      |
+| `GCP_SERVICE_ACCOUNT`            | `chrome-web-store@squired-development.iam.gserviceaccount.com`                         |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/803347007096/locations/global/workloadIdentityPools/github/providers/github` |
 
 None of these are secret. Optionally, add required reviewers to the `chrome-web-store` environment (**Settings > Environments**) so each release waits for your approval before uploading.
