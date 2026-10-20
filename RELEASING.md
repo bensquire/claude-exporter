@@ -11,9 +11,9 @@ git push --follow-tags
 
 ## One-time setup
 
-### 1. First submission (manual)
+### 1. First submission (manual) — done
 
-The API can only update an item that already exists, so the first version goes up by hand:
+The API can only update an item that already exists, so the first version went up by hand. The item ID is `hebhnhibdecijopliikejmojkpkcelbc` ([listing](https://chromewebstore.google.com/detail/claude-exporter/hebhnhibdecijopliikejmojkpkcelbc)); the publisher ID is under **Publisher > Settings** in the Developer Dashboard. For reference, the steps were:
 
 1. `npm ci && npm run build && (cd dist && zip -qrX ../claude-exporter.zip .)`
 2. In the [Developer Dashboard](https://chrome.google.com/webstore/devconsole), add a new item and upload the zip.

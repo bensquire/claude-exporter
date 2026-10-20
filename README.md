@@ -2,6 +2,7 @@
 
 > A privacy-first Chrome extension to export [claude.ai](https://claude.ai) conversations to **Markdown**, **HTML**, **PDF**, **JSON** and **plain text** — or copy them straight to your **clipboard**.
 
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/hebhnhibdecijopliikejmojkpkcelbc.svg)](https://chromewebstore.google.com/detail/claude-exporter/hebhnhibdecijopliikejmojkpkcelbc)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](./tsconfig.json)
@@ -56,6 +57,10 @@ Permissions we deliberately do **not** request:
 
 ## Installation
 
+### Chrome Web Store
+
+Install [Claude Exporter from the Chrome Web Store](https://chromewebstore.google.com/detail/claude-exporter/hebhnhibdecijopliikejmojkpkcelbc).
+
 ### From source (unpacked)
 
 ```bash
@@ -72,10 +77,6 @@ Then in Chrome:
 2. Enable **Developer mode** (top-right toggle).
 3. Click **Load unpacked** and select the `dist/` directory.
 4. Pin the extension to your toolbar (optional but convenient).
-
-### Chrome Web Store
-
-Coming soon.
 
 ## Usage
 
