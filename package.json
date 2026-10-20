@@ -11,16 +11,17 @@
         "typecheck": "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
-        "test:e2e": "playwright test",
         "lint": "oxlint",
         "format": "oxfmt .",
         "format:check": "oxfmt --check ."
     },
+    "dependencies": {
+        "markdown-it": "^15.0.2"
+    },
     "devDependencies": {
         "@crxjs/vite-plugin": "^2.0.0-beta.25",
-        "@playwright/test": "^1.47.0",
         "@types/chrome": "^0.0.270",
-        "@types/node": "^22.5.0",
+        "@types/node": "^24.19.1",
         "oxfmt": "^0.44.0",
         "oxlint": "^1.59.0",
         "typescript": "^5.6.2",

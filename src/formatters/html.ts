@@ -1,13 +1,22 @@
-import type { ChatConversation, ChatMessage, ExportOptions } from '../content/types';
-import { escapeHtml, renderMessage, selectActiveBranch, type RenderedFragment } from './shared';
+import MarkdownIt from 'markdown-it';
+import type { ChatConversation, ChatMessage, ExportOptions, MessageSender } from '../content/types';
+import { escapeHtml, renderConversation, type RenderedFragment } from './shared';
+
+// `html: false` escapes raw HTML and markdown-it drops javascript:/data: links.
+// Images are off so opening an export never fetches a remote URL. Built lazily
+// because this module loads on every claude.ai page.
+let md: InstanceType<typeof MarkdownIt> | undefined;
+const renderMarkdown = (text: string): string => {
+    md ??= new MarkdownIt({ html: false, linkify: true }).disable('image');
+    return md.render(text).trimEnd();
+};
 
 export const toHtml = (conversation: ChatConversation, options: ExportOptions): string => {
-    const messages = selectActiveBranch(conversation);
     const title = escapeHtml(conversation.name || 'Claude conversation');
 
-    const body = messages
-        .map((msg) => {
-            const fragments = renderMessage(msg, options).map(renderFragment).join('\n');
+    const body = renderConversation(conversation, options)
+        .map(({ msg, fragments: frags }) => {
+            const fragments = frags.map((frag) => renderFragment(frag, msg.sender)).join('\n');
             const attachments = renderAttachments(msg);
             return `<section class="turn turn-${msg.sender}">
   <header class="turn-header">${msg.sender === 'human' ? 'Human' : 'Assistant'}</header>
@@ -37,10 +46,13 @@ ${attachments ?? ''}
 `;
 };
 
-const renderFragment = (frag: RenderedFragment): string => {
+const renderFragment = (frag: RenderedFragment, sender: MessageSender): string => {
     switch (frag.kind) {
         case 'text':
-            return `<div class="text">${paragraphs(frag.text)}</div>`;
+            // Matches claude.ai, which shows human messages verbatim.
+            return sender === 'assistant'
+                ? `<div class="text markdown">${renderMarkdown(frag.text)}</div>`
+                : `<div class="text">${paragraphs(frag.text)}</div>`;
         case 'thinking':
             return `<details class="thinking"><summary>Thinking</summary><pre>${escapeHtml(frag.text)}</pre></details>`;
         case 'code': {
@@ -98,6 +110,8 @@ const STYLES = `
     --bg-code: #0f1115;
     --fg-code: #e6e6e6;
     --border: #e4e4e7;
+    --link: #4f46e5;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; }
   body {
@@ -132,16 +146,38 @@ const STYLES = `
   .turn-body { padding: 1rem; }
   .turn-body > * + * { margin-top: 0.75rem; }
   p { margin: 0.5rem 0; }
-  pre.code, .tool-use pre, .tool-result pre, .unknown pre, .thinking pre {
+  pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre, .thinking pre {
     background: var(--bg-code);
     color: var(--fg-code);
     padding: 0.75rem 1rem;
     border-radius: 6px;
     overflow-x: auto;
-    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 13px/1.5 var(--font-mono);
     white-space: pre-wrap;
     word-break: break-word;
   }
+  .markdown > :first-child { margin-top: 0; }
+  .markdown > :last-child { margin-bottom: 0; }
+  .markdown :not(pre) > code {
+    font: 0.875em var(--font-mono);
+    background: var(--bg-human);
+    padding: 0.1em 0.3em;
+    border-radius: 4px;
+  }
+  .markdown pre code { font: inherit; }
+  .markdown h1, .markdown h2, .markdown h3, .markdown h4 { line-height: 1.3; margin: 1.25rem 0 0.5rem; }
+  .markdown h1 { font-size: 1.4rem; }
+  .markdown h2 { font-size: 1.25rem; }
+  .markdown h3 { font-size: 1.1rem; }
+  .markdown h4 { font-size: 1rem; }
+  .markdown ul, .markdown ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  .markdown li + li { margin-top: 0.25rem; }
+  .markdown blockquote { margin: 0.5rem 0; padding-left: 1rem; border-left: 3px solid var(--border); color: var(--fg-muted); }
+  .markdown table { border-collapse: collapse; margin: 0.5rem 0; display: block; overflow-x: auto; }
+  .markdown th, .markdown td { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; }
+  .markdown th { background: var(--bg-human); }
+  .markdown hr { border: 0; border-top: 1px solid var(--border); margin: 1rem 0; }
+  .markdown a { color: var(--link); }
   .code-title { font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.25rem; }
   .tool-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); margin-bottom: 0.25rem; }
   .tool-result.is-error pre { border-left: 3px solid #dc2626; }
@@ -155,7 +191,7 @@ const STYLES = `
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
     details.thinking { display: none; }
-    pre.code, .tool-use pre, .tool-result pre, .unknown pre {
+    pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre {
       background: #f6f8fa;
       color: #111;
       border: 1px solid #e4e4e7;

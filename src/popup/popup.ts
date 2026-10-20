@@ -37,8 +37,7 @@ const exportAs = async (format: ExportFormat): Promise<void> => {
     }
 };
 
-/** sendMessage to the content script, falling back to a tab reload if the
- *  content script isn't registered yet (tab opened before the extension loaded). */
+/** Reloads the tab if the content script isn't there yet (tab opened before install). */
 const sendWithInject = async (tabId: number, req: Request): Promise<Response | undefined> => {
     try {
         return (await chrome.tabs.sendMessage(tabId, req)) as Response | undefined;
@@ -51,17 +50,28 @@ const sendWithInject = async (tabId: number, req: Request): Promise<Response | u
     }
 };
 
+const RELOAD_TIMEOUT_MS = 15_000;
+
 const reloadAndWait = async (tabId: number): Promise<void> => {
-    await chrome.tabs.reload(tabId);
-    await new Promise<void>((resolve) => {
-        const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
-            if (id === tabId && info.status === 'complete') {
-                chrome.tabs.onUpdated.removeListener(listener);
-                resolve();
-            }
+    // Listen before reloading so a fast 'complete' can't slip past us.
+    const loaded = new Promise<void>((resolve, reject) => {
+        const cleanup = () => {
+            chrome.tabs.onUpdated.removeListener(listener);
+            clearTimeout(timer);
         };
+        const listener = (id: number, info: chrome.tabs.TabChangeInfo) => {
+            if (id !== tabId || info.status !== 'complete') return;
+            cleanup();
+            resolve();
+        };
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Timed out waiting for the tab to reload.'));
+        }, RELOAD_TIMEOUT_MS);
         chrome.tabs.onUpdated.addListener(listener);
     });
+    await chrome.tabs.reload(tabId);
+    await loaded;
     // Give the content script a moment to register its message listener.
     await new Promise((r) => setTimeout(r, 300));
 };
