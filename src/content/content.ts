@@ -1,9 +1,8 @@
 import type { ExportFormat, Request, Response } from '../messages';
 import { defaultExportOptions } from './types';
-import { extractConversationUuid, getConversation, getPrimaryOrgUuid } from './api';
+import { extractConversationUuid, findConversation, readCookie } from './api';
 import { toMarkdown } from '../formatters/markdown';
 import { toHtml } from '../formatters/html';
-import { buildPrintHtml } from '../formatters/pdf';
 import { dateStamp, sanitizeFilename } from '../formatters/shared';
 
 chrome.runtime.onMessage.addListener((msg: Request, _sender, sendResponse) => {
@@ -24,8 +23,7 @@ const handleExport = async (format: ExportFormat): Promise<Response> => {
     const uuid = extractConversationUuid(location.href);
     if (!uuid) return { ok: false, error: 'Not on a claude.ai conversation page.' };
 
-    const orgUuid = await getPrimaryOrgUuid();
-    const conversation = await getConversation(orgUuid, uuid);
+    const conversation = await findConversation(uuid, readCookie(document.cookie, 'lastActiveOrg'));
     const options = defaultExportOptions;
     const baseName = `${sanitizeFilename(conversation.name ?? 'conversation')}-${dateStamp()}`;
 
@@ -40,7 +38,7 @@ const handleExport = async (format: ExportFormat): Promise<Response> => {
         return { ok: true, filename: `${baseName}.html` };
     }
     if (format === 'pdf') {
-        const printHtml = buildPrintHtml(conversation, options);
+        const printHtml = toHtml(conversation, options);
         return { ok: true, filename: `${baseName}.pdf`, printHtml };
     }
     if (format === 'copy-markdown') {

@@ -1,9 +1,10 @@
 import { defineManifest } from '@crxjs/vite-plugin';
+import pkg from '../package.json';
 
 export default defineManifest({
     manifest_version: 3,
     name: 'Claude Exporter',
-    version: '0.1.0',
+    version: pkg.version,
     description:
         'Export claude.ai conversations to Markdown, HTML, or PDF. Privacy-first, fully local.',
     icons: {
@@ -29,12 +30,6 @@ export default defineManifest({
             matches: ['https://claude.ai/*'],
             js: ['src/content/content.ts'],
             run_at: 'document_idle',
-        },
-    ],
-    web_accessible_resources: [
-        {
-            resources: ['src/viewer/viewer.html'],
-            matches: ['<all_urls>'],
         },
     ],
 });

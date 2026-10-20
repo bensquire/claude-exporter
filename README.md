@@ -5,7 +5,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6.svg)](./tsconfig.json)
-[![Tests](https://img.shields.io/badge/tests-34%20passing-success.svg)](./tests)
 
 Everything runs locally in your browser. No backend, no telemetry, no third-party services. Audit the entire codebase in an afternoon.
 
@@ -14,12 +13,14 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 ## Features
 
 - **Export to Markdown** — clean `.md` with human/assistant turns, code blocks, and collapsible thinking sections.
-- **Export to HTML** — self-contained, single-file `.html` with inlined styles.
+- **Export to HTML** — self-contained, single-file `.html` with inlined styles. Claude's replies are rendered from Markdown (headings, lists, tables, code blocks), as on claude.ai.
 - **Export to PDF** — opens a print-tuned preview and triggers your browser's native print dialog (vector text, real pagination).
 - **Copy to clipboard** — copy any conversation as Markdown or HTML in one click.
 - **Branched conversations** — only the active branch (the path you're reading) is exported, not regenerated dead-ends.
-- **Code-fence safe** — code blocks containing backticks are escaped correctly.
-- **XSS-safe** — all rendered content is HTML-escaped. Generated files are safe to open locally.
+- **Artifacts** — exported in full, with later edits applied, so each one shows the version Claude produced at that point.
+- **Multiple organizations** — works whether the conversation lives in your personal account or a Team/Enterprise org.
+- **Code-fence safe** — code blocks containing backticks get a longer fence, so they don't break out.
+- **XSS-safe** — raw HTML in conversations is escaped, and `javascript:`-style links are dropped. Images are not rendered, so opening an export never fetches a remote URL.
 
 ## Privacy
 
@@ -29,7 +30,7 @@ This extension is built around one principle: **your conversations never leave y
 - ✅ **No persistent storage.** Nothing is written to disk other than the files _you_ choose to export.
 - ✅ **Minimal permissions** (see [below](#permissions)).
 - ✅ **No build-time obfuscation.** Source maps are shipped with the build so you can step through the exact code that runs.
-- ✅ **Reproducible builds.** `npm ci && npm run build` from any tagged commit produces byte-identical output to the Chrome Web Store release.
+- ✅ **Reproducible builds.** `npm ci && npm run build` from a release tag reproduces the released `dist/` (see [below](#reproducible-builds)).
 - ✅ **Open source under MIT.**
 
 ### Permissions
@@ -54,7 +55,7 @@ Permissions we deliberately do **not** request:
 ```bash
 git clone https://github.com/bensquire/claude-exporter.git
 cd claude-exporter
-nvm use            # Node 20
+nvm use            # Node version from .nvmrc
 npm ci
 npm run build
 ```
@@ -80,13 +81,22 @@ Coming soon.
 
 For PDF: a new tab opens with the print preview and the system print dialog automatically appears. Choose **Save as PDF** as the destination. Chrome remembers your last destination, so subsequent prints are effectively one click.
 
+If a claude.ai tab was open before you installed the extension, the first export reloads it so the content script can load. Anything you'd typed but not sent in that tab is lost.
+
+### Limitations
+
+- Attachments and uploaded images are listed by name; their contents aren't exported.
+- Thinking is included in Markdown and HTML exports (collapsed), but hidden in PDFs.
+- **Copy as HTML** copies the HTML source as text, for pasting into an editor or file, not as formatted text.
+- claude.ai's API is undocumented, so a change on their side can break exports until the extension is updated.
+
 ## How it works
 
-claude.ai exposes a cookie-authenticated JSON API at `/api/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages`. Because the extension's content script runs on the `claude.ai` origin, your browser cookies are sent automatically — no token handling, no OAuth, no storage of credentials.
+claude.ai exposes a cookie-authenticated JSON API at `/api/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages`. Because the extension's content script runs on the `claude.ai` origin, your browser cookies are sent automatically — no token handling, no OAuth, no storage of credentials. The org is taken from claude.ai's `lastActiveOrg` cookie, falling back to each of your other orgs in turn.
 
 The full message tree is fetched, the active branch is selected (using `current_leaf_message_uuid`), and each message's content blocks (text, thinking, tool_use, tool_result, artifacts, attachments) are walked and rendered into the chosen format by pure formatter functions.
 
-For PDF specifically: rather than rasterizing the live claude.ai page (which produces poor output because their CSS isn't print-tuned), the extension generates its own standalone HTML with a print-optimized stylesheet, opens it in a new tab, and triggers `window.print()`. Result: vector text, real pagination, proper page breaks between turns.
+For PDF specifically: rather than rasterizing the live claude.ai page (which produces poor output because their CSS isn't print-tuned), the extension generates its own standalone HTML with a print-optimized stylesheet, opens it in a new tab, and triggers `window.print()`. Result: vector text, real pagination, and turns kept on one page where they fit.
 
 ## Architecture
 
@@ -104,8 +114,7 @@ src/
 ├── formatters/
 │   ├── shared.ts            # Pure content-block walker, HTML escape, fence picker
 │   ├── markdown.ts          # ChatConversation → string (Markdown)
-│   ├── html.ts              # ChatConversation → string (standalone HTML)
-│   └── pdf.ts               # Builds print-ready HTML from html.ts output
+│   └── html.ts              # ChatConversation → string (standalone HTML + print CSS)
 └── viewer/
     ├── viewer.html          # Print preview shell
     └── viewer.ts            # Reads HTML from session storage and prints
@@ -116,7 +125,7 @@ The formatters are **pure functions** over the conversation JSON — no I/O, no 
 ## Development
 
 ```bash
-nvm use                # Node 20
+nvm use                # Node version from .nvmrc
 npm ci                 # install dependencies (lockfile-frozen)
 
 npm run dev            # HMR-capable dev build (watch mode)
@@ -125,9 +134,8 @@ npm run typecheck      # tsc --noEmit
 npm run lint           # oxlint
 npm run format         # oxfmt . (writes in place)
 npm run format:check   # oxfmt --check .
-npm test               # vitest unit tests (34 tests)
+npm test               # vitest unit tests
 npm run test:watch     # vitest in watch mode
-npm run test:e2e       # Playwright end-to-end (planned)
 ```
 
 After running `npm run build`, **reload the extension** in `chrome://extensions` (the circular arrow icon on the extension card) to pick up your changes.
@@ -137,64 +145,54 @@ After running `npm run build`, **reload the extension** in `chrome://extensions`
 - **[Vite](https://vitejs.dev)** + **[@crxjs/vite-plugin](https://crxjs.dev/vite-plugin)** — fast builds, HMR, MV3-aware bundling.
 - **TypeScript strict mode** with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`.
 - **[oxlint](https://oxc.rs/docs/guide/usage/linter.html)** + **[oxfmt](https://oxc.rs/docs/guide/usage/formatter.html)** — fast Rust-based linter and formatter.
-- **[Vitest](https://vitest.dev)** — unit tests for the formatters and edge cases.
-- **Playwright** — end-to-end tests (planned).
+- **[Vitest](https://vitest.dev)** — unit tests for the formatters, API helpers and edge cases.
+
+### Releasing
+
+Pushing a version tag publishes to the Chrome Web Store via GitHub Actions. See [RELEASING.md](./RELEASING.md).
 
 ### Code style
 
 - 4-space indentation, single quotes, semicolons, trailing commas. Enforced by `oxfmt` (see `.oxfmtrc.json`).
 - Arrow functions over `function` declarations (personal preference).
-- Pure functions in `src/formatters/*` — no side effects, ever.
 - Defensive parsing at the API boundary in `src/content/api.ts` and `src/content/types.ts`. The claude.ai API is undocumented and may change.
 
 ### Testing
 
-Unit tests cover the formatters exhaustively, including:
+Unit tests cover:
 
 - Branched conversation trees (only the active branch is rendered).
-- HTML escaping (XSS-safe rendering of arbitrary user content).
+- HTML escaping (XSS-safe rendering of arbitrary user content), including raw HTML, `javascript:` links and images inside Claude's Markdown.
+- Artifact updates applied across messages to reconstruct each version.
+- Finding a conversation across multiple organizations (personal + Team/Enterprise).
 - Code-fence collision (backticks inside content force the fence to grow).
 - Unknown / future block types (degrade gracefully, never crash).
 - Empty conversations, single messages, very long conversations (200+ messages).
 - Unicode, emoji, RTL text.
-- Missing optional fields, malformed input.
-
-```bash
-npm test
-```
-
-```
- ✓ tests/formatters/shared.test.ts (15 tests)
- ✓ tests/formatters/markdown.test.ts (7 tests)
- ✓ tests/formatters/html.test.ts (5 tests)
- ✓ tests/edge-cases.test.ts (7 tests)
-
- Test Files  4 passed (4)
-      Tests  34 passed (34)
-```
+- Missing optional fields.
 
 ## Reproducible builds
 
-To verify that the Chrome Web Store build matches the source:
+Each [GitHub release](https://github.com/bensquire/claude-exporter/releases) has the exact zip that was uploaded to the Chrome Web Store, built by CI from the tagged commit. To check it against the source:
 
 ```bash
 git clone https://github.com/bensquire/claude-exporter.git
 cd claude-exporter
-git checkout v0.1.0           # or whichever release tag
+git checkout vX.Y.Z           # the release tag
 nvm use                       # Node version pinned in .nvmrc
 npm ci                        # frozen-lockfile install
 npm run build
 ```
 
-The contents of `dist/` should be byte-identical to the package distributed via the Chrome Web Store.
+`dist/` should match the contents of the release zip byte for byte, except `assets/crx-manifest.js-*.js.map`: that source map embeds a path that depends on where you cloned the repo.
 
 ## Contributing
 
 Issues and PRs welcome. Please:
 
-1. Run `npm run typecheck && npm run lint && npm test` before opening a PR.
+1. Run `npm run typecheck && npm run lint && npm run format:check && npm test` before opening a PR.
 2. Add tests for any change to the formatters or content-block walker.
-3. Keep the runtime dependency surface at **zero** — every dep is something users have to audit.
+3. Keep the runtime dependency surface minimal — every dep is something users have to audit. The only direct one today is [`markdown-it`](https://github.com/markdown-it/markdown-it), for rendering Claude's replies in HTML exports; it brings in five small packages of its own (`entities`, `linkify-it`, `mdurl`, `punycode.js`, `uc.micro`).
 4. Don't add new permissions to the manifest without strong justification.
 
 ## License

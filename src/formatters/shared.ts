@@ -1,8 +1,6 @@
 import type { ChatConversation, ChatMessage, ContentBlock, ExportOptions } from '../content/types';
 
-/** Walks a branched conversation tree and returns messages on the active branch
- *  (the path ending at `current_leaf_message_uuid`), sorted by index. If no
- *  leaf is set, falls back to all messages sorted by index. */
+/** The path ending at `current_leaf_message_uuid`, or every message if no leaf is set. */
 export const selectActiveBranch = (conversation: ChatConversation): ChatMessage[] => {
     const messages = conversation.chat_messages ?? [];
     const leaf = conversation.current_leaf_message_uuid;
@@ -23,9 +21,6 @@ export const selectActiveBranch = (conversation: ChatConversation): ChatMessage[
     return path.toReversed();
 };
 
-/** Render a single ContentBlock to plain text / markdown-ish fragments.
- *  Consumers decide how to wrap (e.g. the HTML formatter HTML-escapes the output).
- *  Returns an array of logical "fragments" so formatters can choose wrapping. */
 export type RenderedFragment =
     | { kind: 'text'; text: string }
     | { kind: 'thinking'; text: string }
@@ -34,7 +29,27 @@ export type RenderedFragment =
     | { kind: 'tool_result'; text: string; isError: boolean }
     | { kind: 'unknown'; type: string; text: string };
 
-export const renderBlock = (block: ContentBlock, options: ExportOptions): RenderedFragment[] => {
+type CodeFragment = Extract<RenderedFragment, { kind: 'code' }>;
+
+/** Latest version of each artifact by id; edits arrive as old_str -> new_str patches. */
+type ArtifactStore = Map<string, CodeFragment>;
+
+export const renderConversation = (
+    conversation: ChatConversation,
+    options: ExportOptions,
+): { msg: ChatMessage; fragments: RenderedFragment[] }[] => {
+    const artifacts: ArtifactStore = new Map();
+    return selectActiveBranch(conversation).map((msg) => ({
+        msg,
+        fragments: renderMessage(msg, options, artifacts),
+    }));
+};
+
+export const renderBlock = (
+    block: ContentBlock,
+    options: ExportOptions,
+    artifacts: ArtifactStore,
+): RenderedFragment[] => {
     const type = block.type;
 
     if (type === 'text') {
@@ -50,21 +65,10 @@ export const renderBlock = (block: ContentBlock, options: ExportOptions): Render
         return raw ? [{ kind: 'thinking', text: raw }] : [];
     }
 
-    // Artifacts come through as tool_use with name = 'artifacts'
     if (type === 'tool_use') {
         const b = block as { name?: unknown; input?: unknown };
         const name = typeof b.name === 'string' ? b.name : 'tool';
-        if (name === 'artifacts' && isRecord(b.input)) {
-            const title = typeof b.input.title === 'string' ? b.input.title : undefined;
-            const language = typeof b.input.language === 'string' ? b.input.language : '';
-            const content = typeof b.input.content === 'string' ? b.input.content : '';
-            if (content) {
-                const frag: RenderedFragment = { kind: 'code', language, text: content };
-                if (title !== undefined) frag.title = title;
-                return [frag];
-            }
-            return [];
-        }
+        if (name === 'artifacts' && isRecord(b.input)) return renderArtifact(b.input, artifacts);
         return [{ kind: 'tool_use', name, input: safeStringify(b.input) }];
     }
 
@@ -79,17 +83,56 @@ export const renderBlock = (block: ContentBlock, options: ExportOptions): Render
         ];
     }
 
-    // Unknown / future block type — degrade gracefully
     return [{ kind: 'unknown', type, text: safeStringify(block) }];
 };
 
-export const renderMessage = (msg: ChatMessage, options: ExportOptions): RenderedFragment[] => {
+const renderArtifact = (
+    input: Record<string, unknown>,
+    artifacts: ArtifactStore,
+): RenderedFragment[] => {
+    const id = str(input.id);
+    const prev = id === undefined ? undefined : artifacts.get(id);
+    const title = str(input.title) ?? prev?.title;
+    const language = str(input.language) ?? prev?.language ?? '';
+
+    let text = str(input.content);
+    if (input.command === 'update') {
+        const oldStr = str(input.old_str);
+        const newStr = str(input.new_str) ?? '';
+        const at = prev && oldStr !== undefined ? prev.text.indexOf(oldStr) : -1;
+        if (!prev || oldStr === undefined || at === -1) {
+            // No base version (e.g. created on another branch): show the edit alone.
+            return newStr
+                ? [codeFragment(language, newStr, `${title ?? 'Artifact'} (partial update)`)]
+                : [];
+        }
+        text = prev.text.slice(0, at) + newStr + prev.text.slice(at + oldStr.length);
+    }
+    if (!text) return [];
+
+    const frag = codeFragment(language, text, title);
+    if (id !== undefined) artifacts.set(id, frag);
+    return [frag];
+};
+
+const codeFragment = (language: string, text: string, title: string | undefined): CodeFragment =>
+    title === undefined
+        ? { kind: 'code', language, text }
+        : { kind: 'code', language, text, title };
+
+export const renderMessage = (
+    msg: ChatMessage,
+    options: ExportOptions,
+    artifacts: ArtifactStore,
+): RenderedFragment[] => {
     const blocks = Array.isArray(msg.content) ? msg.content : [];
     if (blocks.length === 0 && typeof msg.text === 'string' && msg.text.length > 0) {
         return [{ kind: 'text', text: msg.text }];
     }
-    return blocks.flatMap((b) => renderBlock(b, options));
+    return blocks.flatMap((b) => renderBlock(b, options, artifacts));
 };
+
+const str = (x: unknown): string | undefined => (typeof x === 'string' ? x : undefined);
 
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null;
 
@@ -115,7 +158,6 @@ const stringifyToolResult = (content: unknown): string => {
     return safeStringify(content);
 };
 
-/** HTML-escape a string. Small and self-contained — no DOMPurify dependency. */
 export const escapeHtml = (s: string): string =>
     s
         .replace(/&/g, '&amp;')
@@ -131,7 +173,6 @@ export const pickFence = (text: string): string => {
     return '`'.repeat(max + 1);
 };
 
-/** Sanitize a string for use as a filename (cross-platform safe). */
 export const sanitizeFilename = (name: string): string =>
     name
         .replace(/[\\/:*?"<>|]/g, '-')

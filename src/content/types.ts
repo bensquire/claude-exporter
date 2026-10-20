@@ -1,5 +1,4 @@
-// Types modelling the subset of the claude.ai internal API we consume.
-// All fields are narrowed defensively — the API is undocumented and can change.
+// claude.ai's internal API is undocumented and can change, so these are kept loose.
 
 export type MessageSender = 'human' | 'assistant';
 
@@ -97,7 +96,6 @@ export interface Organization {
     name?: string;
 }
 
-// Options passed from the popup into the formatters.
 export interface ExportOptions {
     includeThinking: boolean;
     embedAttachments: boolean;

@@ -1,6 +1,6 @@
 import type { ChatConversation, Organization } from './types';
 
-const API_BASE = 'https://claude.ai/api';
+export const API_BASE = 'https://claude.ai/api';
 
 class ApiError extends Error {
     constructor(
@@ -26,14 +26,6 @@ const jsonFetch = async <T>(path: string): Promise<T> => {
 export const getOrganizations = (): Promise<Organization[]> =>
     jsonFetch<Organization[]>('/organizations');
 
-/** Returns the uuid of the first organization (the user's primary). */
-export const getPrimaryOrgUuid = async (): Promise<string> => {
-    const orgs = await getOrganizations();
-    const first = orgs[0];
-    if (!first?.uuid) throw new ApiError('No organizations returned for the current user');
-    return first.uuid;
-};
-
 export const getConversation = (
     orgUuid: string,
     conversationUuid: string,
@@ -42,7 +34,50 @@ export const getConversation = (
         `/organizations/${orgUuid}/chat_conversations/${conversationUuid}?tree=True&rendering_mode=messages`,
     );
 
-/** Extract the conversation uuid from a claude.ai URL, or null if not on a chat page. */
+const tryGetConversation = async (
+    orgUuid: string,
+    conversationUuid: string,
+): Promise<ChatConversation | null> => {
+    try {
+        return await getConversation(orgUuid, conversationUuid);
+    } catch (err) {
+        if (err instanceof ApiError && (err.status === 403 || err.status === 404)) return null;
+        throw err;
+    }
+};
+
+/** A conversation 404s or 403s under every org but its own, and Team/Enterprise
+ *  users usually also have a personal org. */
+export const findConversation = async (
+    conversationUuid: string,
+    preferredOrgUuid: string | null,
+): Promise<ChatConversation> => {
+    if (preferredOrgUuid) {
+        const hit = await tryGetConversation(preferredOrgUuid, conversationUuid);
+        if (hit) return hit;
+    }
+    const others = (await getOrganizations())
+        .map((o) => o.uuid)
+        .filter((uuid) => uuid && uuid !== preferredOrgUuid);
+    for (const orgUuid of others) {
+        // Sequential: other orgs rarely own the conversation, so don't fan out.
+        // oxlint-disable-next-line no-await-in-loop
+        const hit = await tryGetConversation(orgUuid, conversationUuid);
+        if (hit) return hit;
+    }
+    throw new ApiError('Conversation not found in any of your organizations.');
+};
+
+export const readCookie = (cookies: string, name: string): string | null => {
+    for (const part of cookies.split(';')) {
+        const eq = part.indexOf('=');
+        if (eq !== -1 && part.slice(0, eq).trim() === name) {
+            return decodeURIComponent(part.slice(eq + 1).trim());
+        }
+    }
+    return null;
+};
+
 export const extractConversationUuid = (url: string): string | null => {
     const match = url.match(/claude\.ai\/chat\/([0-9a-f-]{36})/i);
     return match?.[1] ?? null;

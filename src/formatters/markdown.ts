@@ -1,8 +1,7 @@
 import type { ChatConversation, ChatMessage, ExportOptions } from '../content/types';
-import { pickFence, renderMessage, selectActiveBranch, type RenderedFragment } from './shared';
+import { pickFence, renderConversation, type RenderedFragment } from './shared';
 
 export const toMarkdown = (conversation: ChatConversation, options: ExportOptions): string => {
-    const messages = selectActiveBranch(conversation);
     const parts: string[] = [];
 
     parts.push(`# ${conversation.name || 'Claude conversation'}`);
@@ -11,10 +10,10 @@ export const toMarkdown = (conversation: ChatConversation, options: ExportOption
     if (conversation.updated_at) parts.push(`_Updated: ${conversation.updated_at}_`);
     parts.push('');
 
-    for (const msg of messages) {
+    for (const { msg, fragments } of renderConversation(conversation, options)) {
         parts.push(roleHeader(msg));
         parts.push('');
-        for (const frag of renderMessage(msg, options)) {
+        for (const frag of fragments) {
             parts.push(renderFragment(frag));
             parts.push('');
         }

@@ -6,5 +6,5 @@
     "semi": true,
     "trailingComma": "all",
     "printWidth": 100,
-    "ignorePatterns": ["dist", "node_modules", "playwright-report", "test-results"]
+    "ignorePatterns": ["dist", "node_modules", "package-lock.json"]
 }

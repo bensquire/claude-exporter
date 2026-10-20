@@ -5,5 +5,5 @@
         "suspicious": "warn",
         "perf": "warn"
     },
-    "ignorePatterns": ["dist", "node_modules", "playwright-report", "test-results"]
+    "ignorePatterns": ["dist", "node_modules"]
 }
