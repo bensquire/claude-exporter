@@ -1,12 +1,13 @@
-import type { ArtifactBlock } from '../transcript/types';
+import type { ArtifactBlock, Role } from '../transcript/types';
 
-export const safeStringify = (x: unknown): string => {
-    try {
-        return JSON.stringify(x, null, 2) ?? String(x);
-    } catch {
-        return String(x);
-    }
-};
+export const roleLabel = (role: Role): string => (role === 'human' ? 'Human' : 'Assistant');
+
+export const imageLabel = (name: string): string => `[Image: ${name}]`;
+
+export const toolResultLabel = (isError: boolean): string =>
+    isError ? 'Tool error' : 'Tool result';
+
+export const formatSize = (bytes: number): string => `(${bytes} bytes)`;
 
 export const thinkingLabel = (summarized: boolean): string =>
     summarized ? 'Thinking (summary)' : 'Thinking';

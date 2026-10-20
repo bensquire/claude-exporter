@@ -1,4 +1,14 @@
-import type { ExportOptions, Transcript } from './types';
+import type { Transcript } from './types';
+
+export interface ExportOptions {
+    includeThinking: boolean;
+    embedAttachments: boolean;
+}
+
+export const defaultExportOptions: ExportOptions = {
+    includeThinking: true,
+    embedAttachments: true,
+};
 
 export const applyOptions = (t: Transcript, options: ExportOptions): Transcript => ({
     ...t,

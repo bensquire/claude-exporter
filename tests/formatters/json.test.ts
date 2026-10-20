@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TRANSCRIPT_SCHEMA, toJson } from '../../src/formatters/json';
+import { toJson } from '../../src/formatters/json';
+import { TRANSCRIPT_SCHEMA } from '../../src/transcript/types';
 import { toTranscript } from '../../src/transcript/from-claude';
 import { richConversation } from '../fixtures/simple';
 

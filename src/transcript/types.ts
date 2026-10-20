@@ -1,6 +1,9 @@
 // The format every exporter consumes. It's plain data with no ties to the
 // claude.ai API, so API changes only touch the converter in from-claude.ts.
 
+/** Bump when the Transcript shape changes incompatibly. */
+export const TRANSCRIPT_SCHEMA = 'claude-exporter/transcript@1';
+
 export interface Transcript {
     id: string;
     title: string;
@@ -88,13 +91,3 @@ export interface Attachment {
     source: 'upload' | 'file';
     extractedText?: string;
 }
-
-export interface ExportOptions {
-    includeThinking: boolean;
-    embedAttachments: boolean;
-}
-
-export const defaultExportOptions: ExportOptions = {
-    includeThinking: true,
-    embedAttachments: true,
-};

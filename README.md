@@ -108,6 +108,7 @@ For PDF specifically: rather than rasterizing the live claude.ai page (which pro
 src/
 ├── manifest.ts              # MV3 manifest, permissions, content_scripts
 ├── messages.ts              # Typed popup ↔ content script message protocol
+├── util.ts                  # safeStringify, shared by the converter and formatters
 ├── popup/
 │   ├── popup.html           # Toolbar popup UI
 │   └── popup.ts             # Button handlers, clipboard write, tab opening
@@ -118,7 +119,7 @@ src/
 ├── transcript/
 │   ├── types.ts             # The Transcript format every formatter consumes
 │   ├── from-claude.ts       # claude.ai API → Transcript (the only code that knows the API shape)
-│   └── options.ts           # Applies export options (thinking, attachment text)
+│   └── options.ts           # Export options and applyOptions (thinking, attachment text)
 ├── formatters/
 │   ├── shared.ts            # Escaping, fence picking, labels, timestamps
 │   ├── markdown.ts          # Transcript → Markdown

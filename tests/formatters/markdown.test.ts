@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportMarkdown } from '../helpers';
-import { defaultExportOptions } from '../../src/transcript/types';
+import { defaultExportOptions } from '../../src/transcript/options';
 import { branchedConversation, richConversation, simpleConversation } from '../fixtures/simple';
 
 describe('toMarkdown', () => {

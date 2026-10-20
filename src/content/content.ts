@@ -5,8 +5,8 @@ import { toHtml, toHtmlFragment } from '../formatters/html';
 import { toJson } from '../formatters/json';
 import { dateStamp, sanitizeFilename } from '../formatters/shared';
 import { toTranscript } from '../transcript/from-claude';
-import { applyOptions } from '../transcript/options';
-import { defaultExportOptions, type Transcript } from '../transcript/types';
+import { applyOptions, defaultExportOptions } from '../transcript/options';
+import type { Transcript } from '../transcript/types';
 
 chrome.runtime.onMessage.addListener((msg: Request, _sender, sendResponse) => {
     if (msg?.kind !== 'export') return false;
@@ -44,12 +44,7 @@ const exporters: Record<ExportFormat, (t: Transcript, baseName: string) => Respo
 };
 
 const download = (text: string, type: string, filename: string): Response => {
-    triggerDownload(new Blob([text], { type }), filename);
-    return { ok: true, filename };
-};
-
-const triggerDownload = (blob: Blob, filename: string): void => {
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([text], { type }));
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
@@ -57,4 +52,5 @@ const triggerDownload = (blob: Blob, filename: string): void => {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return { ok: true, filename };
 };

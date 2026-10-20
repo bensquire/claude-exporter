@@ -2,8 +2,7 @@ import type { ChatConversation, ChatMessage } from '../src/content/types';
 import { toHtml } from '../src/formatters/html';
 import { toMarkdown } from '../src/formatters/markdown';
 import { toTranscript } from '../src/transcript/from-claude';
-import { applyOptions } from '../src/transcript/options';
-import { defaultExportOptions, type ExportOptions } from '../src/transcript/types';
+import { applyOptions, defaultExportOptions, type ExportOptions } from '../src/transcript/options';
 
 export const exportMarkdown = (
     c: ChatConversation,

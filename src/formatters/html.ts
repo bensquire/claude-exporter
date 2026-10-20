@@ -1,6 +1,16 @@
 import MarkdownIt from 'markdown-it';
 import type { Block, Transcript, Turn } from '../transcript/types';
-import { artifactLabel, escapeHtml, formatTime, safeStringify, thinkingLabel } from './shared';
+import { safeStringify } from '../util';
+import {
+    artifactLabel,
+    escapeHtml,
+    formatSize,
+    formatTime,
+    imageLabel,
+    roleLabel,
+    thinkingLabel,
+    toolResultLabel,
+} from './shared';
 
 // `html: false` escapes raw HTML and markdown-it drops javascript:/data: links.
 // Images are off so opening an export never fetches a remote URL. Built lazily
@@ -33,7 +43,7 @@ export const toHtmlFragment = (t: Transcript): string => {
             const blocks = turn.blocks.map(renderBlock).join('\n');
             const attachments = renderAttachments(turn);
             return `<section class="turn turn-${turn.role}">
-  <header class="turn-header">${turn.role === 'human' ? 'Human' : 'Assistant'}${turnTime(turn)}</header>
+  <header class="turn-header">${roleLabel(turn.role)}${turnTime(turn)}</header>
   <div class="turn-body">
 ${blocks}
 ${attachments ?? ''}
@@ -56,7 +66,7 @@ const renderBlock = (block: Block): string => {
         case 'thinking':
             return `<details class="thinking"><summary>${thinkingLabel(block.summarized)}</summary><pre>${escapeHtml(block.text)}</pre></details>`;
         case 'image':
-            return `<p class="image-ref">[Image: ${escapeHtml(block.name)}]</p>`;
+            return `<p class="image-ref">${escapeHtml(imageLabel(block.name))}</p>`;
         case 'artifact': {
             const lang = escapeHtml(block.language);
             const label = artifactLabel(block);
@@ -64,13 +74,29 @@ const renderBlock = (block: Block): string => {
             return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(block.content)}</code></pre>`;
         }
         case 'tool_use':
-            return `<div class="tool-use"><div class="tool-label">Tool call: <code>${escapeHtml(block.name)}</code></div><pre><code>${escapeHtml(safeStringify(block.input))}</code></pre></div>`;
+            return labelledCode(
+                'tool-use',
+                `Tool call: <code>${escapeHtml(block.name)}</code>`,
+                safeStringify(block.input),
+            );
         case 'tool_result':
-            return `<div class="tool-result ${block.isError ? 'is-error' : ''}"><div class="tool-label">${block.isError ? 'Tool error' : 'Tool result'}</div><pre><code>${escapeHtml(block.text)}</code></pre></div>`;
+            return labelledCode(
+                `tool-result ${block.isError ? 'is-error' : ''}`,
+                toolResultLabel(block.isError),
+                block.text,
+            );
         case 'unknown':
-            return `<div class="unknown"><div class="tool-label">Unknown block (${escapeHtml(block.type)})</div><pre><code>${escapeHtml(safeStringify(block.raw))}</code></pre></div>`;
+            return labelledCode(
+                'unknown',
+                `Unknown block (${escapeHtml(block.type)})`,
+                safeStringify(block.raw),
+            );
     }
 };
+
+/** `labelHtml` must already be escaped. */
+const labelledCode = (cls: string, labelHtml: string, text: string): string =>
+    `<div class="${cls}"><div class="tool-label">${labelHtml}</div><pre><code>${escapeHtml(text)}</code></pre></div>`;
 
 const turnTime = (turn: Turn): string =>
     turn.createdAt
@@ -86,7 +112,7 @@ const paragraphs = (text: string): string =>
 const renderAttachments = (turn: Turn): string | null => {
     if (turn.attachments.length === 0) return null;
     const items = turn.attachments.map((a) => {
-        const size = a.size === undefined ? '' : ` <span class="size">(${a.size} bytes)</span>`;
+        const size = a.size === undefined ? '' : ` <span class="size">${formatSize(a.size)}</span>`;
         const label = `${escapeHtml(a.name)}${size}`;
         return a.extractedText === undefined
             ? `<li>${label}</li>`
@@ -140,7 +166,7 @@ const STYLES = `
   .turn-body { padding: 1rem; }
   .turn-body > * + * { margin-top: 0.75rem; }
   p { margin: 0.5rem 0; }
-  pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre, .thinking pre, .attachments pre {
+  .turn-body pre {
     background: var(--bg-code);
     color: var(--fg-code);
     padding: 0.75rem 1rem;
@@ -189,7 +215,7 @@ const STYLES = `
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
     details.thinking { display: none; }
-    pre.code, .markdown pre, .tool-use pre, .tool-result pre, .unknown pre, .attachments pre {
+    .turn-body pre {
       background: #f6f8fa;
       color: #111;
       border: 1px solid #e4e4e7;

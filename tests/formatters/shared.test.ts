@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
     artifactLabel,
     escapeHtml,
+    formatTime,
     pickFence,
-    safeStringify,
     sanitizeFilename,
 } from '../../src/formatters/shared';
+import { safeStringify } from '../../src/util';
 
 describe('artifactLabel', () => {
     const base = { kind: 'artifact', language: '', content: '', version: 1 } as const;
@@ -43,6 +44,16 @@ describe('escapeHtml', () => {
             '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;',
         );
         expect(escapeHtml("a&b'c")).toBe('a&amp;b&#39;c');
+    });
+});
+
+describe('formatTime', () => {
+    it('formats ISO timestamps in UTC to the minute', () => {
+        expect(formatTime('2026-04-01T10:05:30+01:00')).toBe('2026-04-01 09:05 UTC');
+    });
+
+    it('returns unparseable input unchanged', () => {
+        expect(formatTime('yesterday')).toBe('yesterday');
     });
 });
 

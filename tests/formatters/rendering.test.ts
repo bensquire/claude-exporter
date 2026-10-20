@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toHtml } from '../../src/formatters/html';
 import { toMarkdown } from '../../src/formatters/markdown';
-import { formatTime } from '../../src/formatters/shared';
 import type { Transcript } from '../../src/transcript/types';
 
 const transcript: Transcript = {
@@ -35,16 +34,6 @@ const transcript: Transcript = {
         },
     ],
 };
-
-describe('formatTime', () => {
-    it('formats ISO timestamps in UTC to the minute', () => {
-        expect(formatTime('2026-04-01T10:05:30+01:00')).toBe('2026-04-01 09:05 UTC');
-    });
-
-    it('returns unparseable input unchanged', () => {
-        expect(formatTime('yesterday')).toBe('yesterday');
-    });
-});
 
 describe('Markdown rendering', () => {
     const md = toMarkdown(transcript);

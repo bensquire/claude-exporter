@@ -5,7 +5,7 @@ import type {
     ContentBlock,
     FileAttachment,
 } from '../content/types';
-import { safeStringify } from '../formatters/shared';
+import { safeStringify } from '../util';
 import type { ArtifactBlock, Attachment, Block, Role, Transcript, Turn } from './types';
 
 export const toTranscript = (conversation: ChatConversation): Transcript => {

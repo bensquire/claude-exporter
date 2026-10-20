@@ -1,5 +1,15 @@
 import type { Block, Transcript, Turn } from '../transcript/types';
-import { artifactLabel, formatTime, pickFence, safeStringify, thinkingLabel } from './shared';
+import { safeStringify } from '../util';
+import {
+    artifactLabel,
+    formatSize,
+    formatTime,
+    imageLabel,
+    pickFence,
+    roleLabel,
+    thinkingLabel,
+    toolResultLabel,
+} from './shared';
 
 export const toMarkdown = (t: Transcript): string => {
     const parts: string[] = [];
@@ -11,7 +21,7 @@ export const toMarkdown = (t: Transcript): string => {
     parts.push('');
 
     for (const turn of t.turns) {
-        parts.push(turn.role === 'human' ? '## Human' : '## Assistant');
+        parts.push(`## ${roleLabel(turn.role)}`);
         parts.push('');
         if (turn.createdAt) {
             parts.push(`_${formatTime(turn.createdAt)}_`);
@@ -45,46 +55,40 @@ const renderBlock = (block: Block): string => {
         case 'thinking':
             return `<details><summary>${thinkingLabel(block.summarized)}</summary>\n\n${block.text}\n\n</details>`;
         case 'image':
-            return `_[Image: ${block.name}]_`;
+            return `_${imageLabel(block.name)}_`;
         case 'artifact': {
-            const fence = pickFence(block.content);
             const label = artifactLabel(block);
             const header = label ? `\n_${label}_\n` : '';
-            return `${header}${fence}${block.language}\n${block.content}\n${fence}`;
+            return `${header}${codeBlock(block.content, block.language)}`;
         }
-        case 'tool_use': {
-            const input = safeStringify(block.input);
-            const fence = pickFence(input);
-            return `**Tool call: \`${block.name}\`**\n\n${fence}json\n${input}\n${fence}`;
-        }
-        case 'tool_result': {
-            const fence = pickFence(block.text);
-            const label = block.isError ? 'Tool error' : 'Tool result';
-            return `**${label}**\n\n${fence}\n${block.text}\n${fence}`;
-        }
-        case 'unknown': {
-            const raw = safeStringify(block.raw);
-            const fence = pickFence(raw);
-            return `**Unknown block (\`${block.type}\`)**\n\n${fence}json\n${raw}\n${fence}`;
-        }
+        case 'tool_use':
+            return `**Tool call: \`${block.name}\`**\n\n${codeBlock(safeStringify(block.input), 'json')}`;
+        case 'tool_result':
+            return `**${toolResultLabel(block.isError)}**\n\n${codeBlock(block.text)}`;
+        case 'unknown':
+            return `**Unknown block (\`${block.type}\`)**\n\n${codeBlock(safeStringify(block.raw), 'json')}`;
     }
+};
+
+const codeBlock = (text: string, lang = ''): string => {
+    const fence = pickFence(text);
+    return `${fence}${lang}\n${text}\n${fence}`;
 };
 
 const renderAttachments = (turn: Turn): string | null => {
     if (turn.attachments.length === 0) return null;
     const lines = ['**Attachments:**'];
     for (const a of turn.attachments) {
-        const size = a.size === undefined ? '' : ` (${a.size} bytes)`;
+        const size = a.size === undefined ? '' : ` ${formatSize(a.size)}`;
         lines.push(`- ${a.name}${size}`);
     }
     for (const a of turn.attachments) {
         if (a.extractedText === undefined) continue;
-        const fence = pickFence(a.extractedText);
         lines.push(
             '',
             `<details><summary>${a.name}</summary>`,
             '',
-            `${fence}\n${a.extractedText}\n${fence}`,
+            codeBlock(a.extractedText),
             '',
             '</details>',
         );

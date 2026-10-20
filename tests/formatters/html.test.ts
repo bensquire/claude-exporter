@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toHtmlFragment } from '../../src/formatters/html';
 import { toTranscript } from '../../src/transcript/from-claude';
-import { exportHtml } from '../helpers';
+import { conversationOf, exportHtml } from '../helpers';
 import { richConversation, simpleConversation } from '../fixtures/simple';
 
 describe('toHtml', () => {
@@ -41,19 +41,7 @@ describe('toHtml', () => {
 
     describe('markdown rendering', () => {
         const withText = (sender: 'human' | 'assistant', text: string) =>
-            exportHtml({
-                ...simpleConversation,
-                current_leaf_message_uuid: 'x1',
-                chat_messages: [
-                    {
-                        uuid: 'x1',
-                        sender,
-                        index: 0,
-                        parent_message_uuid: null,
-                        content: [{ type: 'text', text }],
-                    },
-                ],
-            });
+            exportHtml(conversationOf({ sender, content: [{ type: 'text', text }] }));
 
         it('renders assistant markdown: code fences, lists, tables', () => {
             const html = withText(
