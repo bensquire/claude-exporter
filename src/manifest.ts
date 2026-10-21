@@ -6,7 +6,7 @@ export default defineManifest({
     name: 'Claude Exporter',
     version: pkg.version,
     description:
-        'Export claude.ai conversations to Markdown, HTML, or PDF. Privacy-first, fully local.',
+        'Export Claude conversations to Markdown, HTML, PDF, JSON or plain text, images included. Runs entirely in your browser.',
     icons: {
         '16': 'src/icons/icon-16.png',
         '32': 'src/icons/icon-32.png',

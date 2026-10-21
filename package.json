@@ -2,7 +2,7 @@
     "name": "claude-exporter",
     "version": "0.2.0",
     "private": true,
-    "description": "Privacy-first Chrome extension to export claude.ai conversations to Markdown, HTML, and PDF.",
+    "description": "Chrome extension that exports Claude conversations to Markdown, HTML, PDF, JSON or plain text, entirely in your browser.",
     "license": "MIT",
     "type": "module",
     "scripts": {
