@@ -56,7 +56,7 @@ describe('findConversation', () => {
         const calls = stubFetch(() => ok(conv));
         await findConversation('c1', 'team');
         expect(calls).toEqual([
-            '/organizations/team/chat_conversations/c1?tree=True&rendering_mode=messages',
+            '/organizations/team/chat_conversations/c1?tree=True&rendering_mode=messages&render_all_tools=true',
         ]);
     });
 

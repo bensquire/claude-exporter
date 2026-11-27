@@ -1,4 +1,4 @@
-import type { ExportFormat, Request, Response } from '../messages';
+import type { ExportFormat, ExportRequest, Request, Response } from '../messages';
 import { extractConversationUuid, fetchImageDataUrl, findConversation, readCookie } from './api';
 import { toMarkdown } from '../formatters/markdown';
 import { toHtml, toHtmlFragment } from '../formatters/html';
@@ -7,12 +7,12 @@ import { toText } from '../formatters/text';
 import { dateStamp, sanitizeFilename } from '../formatters/shared';
 import { toTranscript } from '../transcript/from-claude';
 import { embedImages } from '../transcript/images';
-import { applyOptions, defaultExportOptions } from '../transcript/options';
+import { applyOptions, defaultExportOptions, type ExportOptions } from '../transcript/options';
 import type { Transcript } from '../transcript/types';
 
 chrome.runtime.onMessage.addListener((msg: Request, _sender, sendResponse) => {
     if (msg?.kind !== 'export') return false;
-    void handleExport(msg.format)
+    void handleExport(msg)
         .then(sendResponse)
         .catch((err: unknown) => {
             sendResponse({
@@ -24,17 +24,24 @@ chrome.runtime.onMessage.addListener((msg: Request, _sender, sendResponse) => {
     return true;
 });
 
-const handleExport = async (format: ExportFormat): Promise<Response> => {
+const handleExport = async ({ format, options }: ExportRequest): Promise<Response> => {
     const uuid = extractConversationUuid(location.href);
     if (!uuid) return { ok: false, error: 'Not on a claude.ai conversation page.' };
     if (!Object.hasOwn(exporters, format)) return { ok: false, error: `Unknown format: ${format}` };
 
     const conversation = await findConversation(uuid, readCookie(document.cookie, 'lastActiveOrg'));
-    let transcript = applyOptions(toTranscript(conversation), defaultExportOptions);
+    let transcript = applyOptions(toTranscript(conversation), {
+        ...defaultExportOptions,
+        ...options,
+        ...(format === 'pdf' ? HIDDEN_IN_PRINT : {}),
+    });
     if (EMBEDS_IMAGES.has(format)) transcript = await embedImages(transcript, fetchImageDataUrl);
     const baseName = `${sanitizeFilename(transcript.title)}-${dateStamp()}`;
     return exporters[format](transcript, baseName);
 };
+
+/** The print styles hide these, so a PDF's HTML needn't carry them to the print tab. */
+const HIDDEN_IN_PRINT: Partial<ExportOptions> = { includeThinking: false, includeToolCalls: false };
 
 /** HTML-based formats carry image previews; the rest link to them. */
 const EMBEDS_IMAGES: ReadonlySet<ExportFormat> = new Set(['html', 'pdf', 'copy-html', 'copy-rich']);

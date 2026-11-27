@@ -94,12 +94,25 @@ export const richConversation: ChatConversation = {
                 },
                 {
                     type: 'tool_use',
+                    id: 'toolu_1',
                     name: 'web_search',
+                    message: 'Searching the web',
                     input: { query: 'claude.ai api' },
                 },
                 {
                     type: 'tool_result',
-                    content: [{ type: 'text', text: 'Result line 1\nResult line 2' }],
+                    tool_use_id: 'toolu_1',
+                    name: 'web_search',
+                    is_error: false,
+                    content: [
+                        {
+                            type: 'knowledge',
+                            title: 'API <docs> [v2]',
+                            url: 'https://example.com/docs_(v2)',
+                            metadata: { site_name: 'Example' },
+                        },
+                        { type: 'text', text: 'Result line 1\nResult line 2' },
+                    ],
                 },
                 { type: 'text', text: 'Done — see <above>.' },
             ],

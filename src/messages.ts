@@ -1,3 +1,5 @@
+import type { ExportOptions } from './transcript/options';
+
 export type ExportFormat =
     | 'markdown'
     | 'html'
@@ -12,6 +14,8 @@ export type ExportFormat =
 export interface ExportRequest {
     kind: 'export';
     format: ExportFormat;
+    /** Anything left out keeps its default. */
+    options?: Partial<ExportOptions>;
 }
 
 export type Request = ExportRequest;

@@ -36,11 +36,16 @@ describe('toMarkdown', () => {
         expect(md).toContain('_Hello.js_');
     });
 
-    it('lists tool calls and tool results', () => {
+    it('collapses tool calls and tool results', () => {
         const md = exportMarkdown(richConversation);
-        expect(md).toContain('Tool call: `web_search`');
-        expect(md).toContain('Tool result');
-        expect(md).toContain('Result line 1');
+        expect(md).toContain(
+            '<details><summary>Tool call: <code>web_search</code> — Searching the web</summary>\n\n```json\n',
+        );
+        expect(md).toContain(
+            '<details><summary>Tool result: <code>web_search</code></summary>\n\n' +
+                '- [API <docs> \\[v2\\]](https://example.com/docs_%28v2%29)\n\n' +
+                '```\nResult line 1\nResult line 2\n```\n\n</details>',
+        );
     });
 
     it('lists attachments with size', () => {

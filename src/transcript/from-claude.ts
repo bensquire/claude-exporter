@@ -7,7 +7,7 @@ import type {
 } from '../content/types';
 import { CLAUDE_ORIGIN } from '../content/api';
 import { safeStringify } from '../util';
-import type { ArtifactBlock, Attachment, Block, Role, Transcript, Turn } from './types';
+import type { ArtifactBlock, Attachment, Block, Role, Source, Transcript, Turn } from './types';
 
 export const toTranscript = (conversation: ChatConversation): Transcript => {
     const artifacts: ArtifactStore = new Map();
@@ -77,7 +77,9 @@ const toBlocks = (
 
     if (type === 'text') {
         const text = (block as { text?: unknown }).text;
-        return typeof text === 'string' && text.length > 0 ? [textBlock(text, role)] : [];
+        if (typeof text !== 'string' || text.length === 0) return [];
+        if (role === 'assistant' && isPlaceholder(text)) return [];
+        return [textBlock(text, role)];
     }
 
     if (type === 'thinking') {
@@ -110,19 +112,34 @@ const toBlocks = (
     }
 
     if (type === 'tool_use') {
-        const b = block as { name?: unknown; input?: unknown };
+        const b = block as { name?: unknown; input?: unknown; message?: unknown };
         const name = str(b.name) ?? 'tool';
-        if (name === 'artifacts' && isRecord(b.input)) return toArtifact(b.input, artifacts);
-        return [{ kind: 'tool_use', name, input: b.input }];
+        if (name === ARTIFACTS_TOOL && isRecord(b.input)) return toArtifact(b.input, artifacts);
+        return [
+            {
+                kind: 'tool_use',
+                name,
+                ...optional('message', str(b.message) || undefined),
+                input: b.input,
+            },
+        ];
     }
 
     if (type === 'tool_result') {
-        const b = block as { content?: unknown; is_error?: unknown };
+        const b = block as { name?: unknown; content?: unknown; is_error?: unknown };
+        const name = str(b.name) || undefined;
+        const isError = b.is_error === true;
+        const { text, sources } = toolResultContent(b.content);
+        // An artifact's result only acknowledges it, and an empty result says nothing.
+        const empty = text === '' && sources.length === 0;
+        if (!isError && (name === ARTIFACTS_TOOL || empty)) return [];
         return [
             {
                 kind: 'tool_result',
-                text: stringifyToolResult(b.content),
-                isError: b.is_error === true,
+                ...optional('name', name),
+                text,
+                ...optional('sources', sources.length > 0 ? sources : undefined),
+                isError,
             },
         ];
     }
@@ -134,6 +151,16 @@ const toBlocks = (
 };
 
 const CONTENTLESS_KEYS = new Set(['type', 'start_timestamp', 'stop_timestamp']);
+
+const ARTIFACTS_TOOL = 'artifacts';
+
+/** What claude.ai sends as a text block in place of a tool block it was not asked to
+ *  render (see getConversation). The request avoids these; this is the safety net. */
+const PLACEHOLDER = '```\nThis block is not supported on your current device yet.\n```';
+
+/** Only whole blocks, so a reply that quotes the placeholder keeps its text. */
+const isPlaceholder = (text: string): boolean =>
+    text.includes(PLACEHOLDER) && text.replaceAll(PLACEHOLDER, '').trim() === '';
 
 const textBlock = (text: string, role: Role): Block => ({
     kind: 'text',
@@ -194,18 +221,34 @@ const claudeUrl = (path: unknown): string | undefined => {
     }
 };
 
-const stringifyToolResult = (content: unknown): string => {
-    if (typeof content === 'string') return content;
-    if (Array.isArray(content)) {
-        return content
-            .map((c) => {
-                if (typeof c === 'string') return c;
-                if (isRecord(c) && typeof c.text === 'string') return c.text;
-                return safeStringify(c);
-            })
-            .join('\n');
+/** Text items joined into `text`, and pages (`knowledge` items) listed as `sources`. */
+const toolResultContent = (content: unknown): { text: string; sources: Source[] } => {
+    const sources: Source[] = [];
+    if (typeof content === 'string') return { text: content, sources };
+    if (content === undefined || content === null) return { text: '', sources };
+    if (!Array.isArray(content)) return { text: safeStringify(content), sources };
+
+    const lines: string[] = [];
+    for (const item of content) {
+        const url = isRecord(item) && item.type === 'knowledge' ? str(item.url) : undefined;
+        if (isRecord(item) && url) {
+            const title = (str(item.title) ?? '').replace(/\s+/g, ' ').trim();
+            sources.push({ title: title || url, url });
+        } else lines.push(toolResultItemText(item));
     }
-    return safeStringify(content);
+    return { text: lines.join('\n'), sources };
+};
+
+const toolResultItemText = (item: unknown): string => {
+    if (typeof item === 'string') return item;
+    if (!isRecord(item)) return safeStringify(item);
+    if (typeof item.text === 'string') return item.text;
+    if (item.type === 'image') return '[Image]';
+    if (item.type === 'image_gallery') {
+        const count = Array.isArray(item.images) ? item.images.length : 0;
+        return `[Image gallery: ${count} ${count === 1 ? 'image' : 'images'}]`;
+    }
+    return safeStringify(item);
 };
 
 /** `{ [key]: value }`, or `{}` when value is undefined, for exactOptionalPropertyTypes. */

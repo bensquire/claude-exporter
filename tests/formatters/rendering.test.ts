@@ -23,6 +23,20 @@ describe('Markdown rendering', () => {
         expect(md).toContain('<summary>Thinking (summary)</summary>');
     });
 
+    it('labels tool calls and errors, escaped for the summary', () => {
+        expect(md).toContain(
+            '<summary>Tool call: <code>fetch&lt;1&gt;</code> — Fetching &amp; reading</summary>',
+        );
+        expect(md).toContain('<summary>Tool error: <code>fetch&lt;1&gt;</code></summary>');
+    });
+
+    it('lists sources as links, and only when they are web addresses', () => {
+        expect(md).toContain(
+            '- [A & B <page>](https://a.example/?q="x"&r=%281%29%202)\n- Local file\n\n</details>',
+        );
+        expect(md).not.toContain('javascript:');
+    });
+
     it('embeds extracted attachment text with a fence that fits', () => {
         expect(md).toContain('- notes <draft>.txt (12 bytes)\n- plain.pdf');
         expect(md).toContain('````\nline with ``` and <b>tags</b>\n````');
@@ -46,6 +60,18 @@ describe('HTML rendering', () => {
 
     it('lists attachments without extracted text plainly', () => {
         expect(html).toContain('<li>plain.pdf</li>');
+    });
+
+    it('collapses tool calls and results, escaped', () => {
+        expect(html).toContain(
+            '<details class="collapsed tool-use"><summary>Tool call: <code>fetch&lt;1&gt;</code> — Fetching &amp; reading</summary><pre><code>',
+        );
+        expect(html).toContain(
+            '<details class="collapsed tool-result is-error"><summary>Tool error: <code>fetch&lt;1&gt;</code></summary>' +
+                '<ul class="sources"><li><a href="https://a.example/?q=&quot;x&quot;&amp;r=(1) 2">A &amp; B &lt;page&gt;</a></li>' +
+                '<li>Local file</li></ul></details>',
+        );
+        expect(html).not.toContain('javascript:');
     });
 });
 

@@ -2,6 +2,10 @@ import type { ExportFormat, Request, Response } from '../messages';
 
 const statusEl = document.getElementById('status') as HTMLDivElement;
 const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-format]'));
+const toolCallsBox = document.getElementById('include-tool-calls') as HTMLInputElement;
+
+/** In session storage: remembered until the browser closes, never written to disk. */
+const TOOL_CALLS_KEY = 'includeToolCalls';
 
 const setStatus = (text: string, isError = false): void => {
     statusEl.textContent = text;
@@ -16,7 +20,11 @@ const exportAs = async (format: ExportFormat): Promise<void> => {
         if (!tab?.id || !tab.url?.startsWith('https://claude.ai/')) {
             throw new Error('Open a claude.ai conversation tab first.');
         }
-        const req: Request = { kind: 'export', format };
+        const req: Request = {
+            kind: 'export',
+            format,
+            options: { includeToolCalls: toolCallsBox.checked },
+        };
         const res = (await sendWithInject(tab.id, req)) as Response | undefined;
         if (!res) throw new Error('No response from page. Try reloading the tab.');
         if (!res.ok) throw new Error(res.error);
@@ -83,6 +91,15 @@ const reloadAndWait = async (tabId: number): Promise<void> => {
     // Give the content script a moment to register its message listener.
     await new Promise((r) => setTimeout(r, 300));
 };
+
+toolCallsBox.addEventListener(
+    'change',
+    () => void chrome.storage.session.set({ [TOOL_CALLS_KEY]: toolCallsBox.checked }),
+);
+void chrome.storage.session.get(TOOL_CALLS_KEY).then((stored: Record<string, unknown>) => {
+    const value = stored[TOOL_CALLS_KEY];
+    if (typeof value === 'boolean') toolCallsBox.checked = value;
+});
 
 for (const btn of buttons) {
     const format = btn.dataset.format as ExportFormat;

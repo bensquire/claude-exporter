@@ -52,6 +52,17 @@
             #status.error {
                 color: #dc2626;
             }
+            .option {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin: 6px 0;
+                font-size: 13px;
+                cursor: pointer;
+            }
+            .option input {
+                margin: 0;
+            }
             .group-label {
                 font-size: 11px;
                 color: #888;
@@ -74,6 +85,11 @@
         <button data-format="copy-rich">Copy formatted</button>
         <button data-format="copy-html">Copy as HTML</button>
         <button data-format="copy-text">Copy as plain text</button>
+        <div class="group-label">Include</div>
+        <label class="option">
+            <input type="checkbox" id="include-tool-calls" checked />
+            Tool calls and results
+        </label>
         <div id="status" role="status" aria-live="polite"></div>
         <script type="module" src="./popup.ts"></script>
     </body>

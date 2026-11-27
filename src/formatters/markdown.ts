@@ -1,15 +1,16 @@
-import type { Block, Transcript, Turn } from '../transcript/types';
+import type { Block, Source, Transcript, Turn } from '../transcript/types';
 import { safeStringify } from '../util';
 import {
     artifactLabel,
     attachmentLabel,
     formatTime,
     imageLabel,
+    isWebUrl,
     pickFence,
     roleLabel,
     thinkingLabel,
-    toolCallLabel,
-    toolResultLabel,
+    toolCallSummaryHtml,
+    toolResultSummaryHtml,
     unknownBlockLabel,
 } from './shared';
 
@@ -55,10 +56,10 @@ const renderBlock = (block: Block): string => {
         case 'text':
             return block.text;
         case 'thinking':
-            return `<details><summary>${thinkingLabel(block.summarized)}</summary>\n\n${block.text}\n\n</details>`;
+            return collapsed(thinkingLabel(block.summarized), block.text);
         case 'image':
             return block.url
-                ? `_[Image: ${block.name.replace(/[[\]\\]/g, '\\$&')}](${block.url})_`
+                ? `_[Image: ${linkText(block.name)}](${block.url})_`
                 : `_${imageLabel(block.name)}_`;
         case 'artifact': {
             const label = artifactLabel(block);
@@ -66,13 +67,40 @@ const renderBlock = (block: Block): string => {
             return `${header}${codeBlock(block.content, block.language)}`;
         }
         case 'tool_use':
-            return `**${toolCallLabel(`\`${block.name}\``)}**\n\n${codeBlock(safeStringify(block.input), 'json')}`;
+            return collapsed(
+                toolCallSummaryHtml(block),
+                codeBlock(safeStringify(block.input), 'json'),
+            );
         case 'tool_result':
-            return `**${toolResultLabel(block.isError)}**\n\n${codeBlock(block.text)}`;
+            return collapsed(
+                toolResultSummaryHtml(block),
+                [
+                    (block.sources ?? []).map(sourceItem).join('\n'),
+                    block.text && codeBlock(block.text),
+                ]
+                    .filter(Boolean)
+                    .join('\n\n'),
+            );
         case 'unknown':
             return `**${unknownBlockLabel(`\`${block.type}\``)}**\n\n${codeBlock(safeStringify(block.raw), 'json')}`;
     }
 };
+
+/** `summaryHtml` is HTML, where Markdown isn't read; the blank lines make `body` Markdown again. */
+const collapsed = (summaryHtml: string, body: string): string =>
+    `<details><summary>${summaryHtml}</summary>\n\n${body}\n\n</details>`;
+
+const linkText = (text: string): string => text.replace(/\s+/g, ' ').replace(/[[\]\\]/g, '\\$&');
+
+/** Characters that would end a Markdown link target early are percent-encoded. */
+const linkTarget = (url: string): string =>
+    url.replace(
+        /[\s()<>]/g,
+        (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`,
+    );
+
+const sourceItem = (s: Source): string =>
+    isWebUrl(s.url) ? `- [${linkText(s.title)}](${linkTarget(s.url)})` : `- ${linkText(s.title)}`;
 
 const codeBlock = (text: string, lang = ''): string => {
     const fence = pickFence(text);
@@ -87,14 +115,7 @@ const renderAttachments = (turn: Turn): string | null => {
     }
     for (const a of turn.attachments) {
         if (a.extractedText === undefined) continue;
-        lines.push(
-            '',
-            `<details><summary>${a.name}</summary>`,
-            '',
-            codeBlock(a.extractedText),
-            '',
-            '</details>',
-        );
+        lines.push('', collapsed(a.name, codeBlock(a.extractedText)));
     }
     return lines.join('\n');
 };

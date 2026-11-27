@@ -125,6 +125,112 @@ describe('blocks', () => {
         ).toEqual([{ kind: 'tool_result', text: 'a\nb', isError: true }]);
     });
 
+    it('keeps the name and description claude.ai gives a tool call', () => {
+        expect(
+            blocksOf([
+                { type: 'tool_use', name: 'web_search', message: 'Searching', input: {} },
+                { type: 'tool_result', name: 'web_search', content: 'found' },
+            ]),
+        ).toEqual([
+            { kind: 'tool_use', name: 'web_search', message: 'Searching', input: {} },
+            { kind: 'tool_result', name: 'web_search', text: 'found', isError: false },
+        ]);
+    });
+
+    it('lists pages a tool returned as sources, apart from its text', () => {
+        expect(
+            blocksOf([
+                {
+                    type: 'tool_result',
+                    content: [
+                        {
+                            type: 'knowledge',
+                            title: ' A\n B ',
+                            url: 'https://a.example',
+                            metadata: {},
+                        },
+                        { type: 'knowledge', title: '', url: 'https://b.example' },
+                        { type: 'knowledge', title: 'No link' },
+                        { type: 'text', text: 'note' },
+                    ],
+                },
+            ]),
+        ).toEqual([
+            {
+                kind: 'tool_result',
+                text: '{\n  "type": "knowledge",\n  "title": "No link"\n}\nnote',
+                sources: [
+                    { title: 'A B', url: 'https://a.example' },
+                    { title: 'https://b.example', url: 'https://b.example' },
+                ],
+                isError: false,
+            },
+        ]);
+    });
+
+    it('notes images in tool results without their data', () => {
+        expect(
+            blocksOf([
+                {
+                    type: 'tool_result',
+                    content: [
+                        { type: 'image', file_uuid: 'f', preview_url: '/p' },
+                        { type: 'image_gallery', images: [{}, {}], is_expired: false },
+                    ],
+                },
+            ]),
+        ).toEqual([
+            { kind: 'tool_result', text: '[Image]\n[Image gallery: 2 images]', isError: false },
+        ]);
+    });
+
+    it('drops results with nothing in them, unless they are errors', () => {
+        const empty = { type: 'tool_result', name: 'ToolSearch', content: [] } as const;
+        expect(blocksOf([empty])).toEqual([]);
+        expect(blocksOf([{ type: 'tool_result', name: 'ToolSearch' }])).toEqual([]);
+        expect(blocksOf([{ ...empty, is_error: true }])).toEqual([
+            { kind: 'tool_result', name: 'ToolSearch', text: '', isError: true },
+        ]);
+    });
+
+    it("drops an artifact's acknowledgement, but not its error", () => {
+        const result = { type: 'tool_result', name: 'artifacts', content: 'OK' } as const;
+        expect(blocksOf([artifact({ id: 'a', content: 'x' }), result])).toEqual([
+            expect.objectContaining({ kind: 'artifact', content: 'x' }),
+        ]);
+        expect(blocksOf([{ ...result, is_error: true }])).toEqual([
+            { kind: 'tool_result', name: 'artifacts', text: 'OK', isError: true },
+        ]);
+    });
+
+    describe('"not supported on your current device" placeholders', () => {
+        const placeholder = '```\nThis block is not supported on your current device yet.\n```';
+
+        it('drops text blocks that are only the placeholder', () => {
+            expect(
+                blocksOf([
+                    { type: 'text', text: 'Before' },
+                    { type: 'text', text: `\n${placeholder}\n` },
+                    { type: 'text', text: `${placeholder}\n\n${placeholder}` },
+                    { type: 'text', text: 'After' },
+                ]),
+            ).toEqual([
+                { kind: 'text', text: 'Before', format: 'markdown' },
+                { kind: 'text', text: 'After', format: 'markdown' },
+            ]);
+        });
+
+        it('keeps replies that quote it, and anything the human wrote', () => {
+            const quoted = `claude.ai sends this:\n\n${placeholder}`;
+            expect(blocksOf([{ type: 'text', text: quoted }])).toEqual([
+                { kind: 'text', text: quoted, format: 'markdown' },
+            ]);
+            expect(blocksOf([{ type: 'text', text: placeholder }], 'human')).toEqual([
+                { kind: 'text', text: placeholder, format: 'plain' },
+            ]);
+        });
+    });
+
     it('keeps unknown block types whole', () => {
         const block = { type: 'future_block', payload: 1 };
         expect(blocksOf([block as never])).toEqual([

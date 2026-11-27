@@ -1,14 +1,36 @@
-import type { ArtifactBlock, Attachment, Role } from '../transcript/types';
+import type {
+    ArtifactBlock,
+    Attachment,
+    Role,
+    ToolResultBlock,
+    ToolUseBlock,
+} from '../transcript/types';
 
 export const roleLabel = (role: Role): string => (role === 'human' ? 'Human' : 'Assistant');
 
 export const imageLabel = (name: string): string => `[Image: ${name}]`;
 
-/** `name` is inserted as given, so formatters can wrap it in code markup first. */
-export const toolCallLabel = (name: string): string => `Tool call: ${name}`;
+/** `name` and `message` are inserted as given, so formatters can mark them up first. */
+export const toolCallLabel = (name: string, message?: string): string =>
+    message ? `Tool call: ${name} — ${message}` : `Tool call: ${name}`;
 
-export const toolResultLabel = (isError: boolean): string =>
-    isError ? 'Tool error' : 'Tool result';
+/** `name` is inserted as given, like toolCallLabel's. */
+export const toolResultLabel = (isError: boolean, name?: string): string => {
+    const label = isError ? 'Tool error' : 'Tool result';
+    return name ? `${label}: ${name}` : label;
+};
+
+/** The labels as escaped HTML, for a `<summary>`, which is HTML in Markdown too. */
+export const toolCallSummaryHtml = (b: ToolUseBlock): string =>
+    toolCallLabel(codeHtml(b.name), b.message && escapeHtml(b.message));
+
+export const toolResultSummaryHtml = (b: ToolResultBlock): string =>
+    toolResultLabel(b.isError, b.name && codeHtml(b.name));
+
+const codeHtml = (text: string): string => `<code>${escapeHtml(text)}</code>`;
+
+/** Whether a URL from claude.ai is safe to turn into a link. */
+export const isWebUrl = (url: string): boolean => /^https?:\/\//i.test(url);
 
 /** `type` is inserted as given, like toolCallLabel's `name`. */
 export const unknownBlockLabel = (type: string): string => `Unknown block (${type})`;
