@@ -74,13 +74,24 @@ export interface ArtifactBlock {
 export interface ToolUseBlock {
     kind: 'tool_use';
     name: string;
+    /** claude.ai's description of the call, e.g. "Searching the web". */
+    message?: string;
     input: unknown;
 }
 
 export interface ToolResultBlock {
     kind: 'tool_result';
+    /** The tool that produced it. */
+    name?: string;
     text: string;
+    /** Pages the tool returned, e.g. web search results. */
+    sources?: Source[];
     isError: boolean;
+}
+
+export interface Source {
+    title: string;
+    url: string;
 }
 
 export interface UnknownBlock {

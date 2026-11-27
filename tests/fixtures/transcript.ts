@@ -30,6 +30,22 @@ export const renderingTranscript: Transcript = {
             blocks: [
                 { kind: 'thinking', text: 'Summary of thoughts', summarized: true },
                 {
+                    kind: 'tool_use',
+                    name: 'fetch<1>',
+                    message: 'Fetching & reading',
+                    input: { url: 'https://a.example' },
+                },
+                {
+                    kind: 'tool_result',
+                    name: 'fetch<1>',
+                    text: '',
+                    sources: [
+                        { title: 'A & B <page>', url: 'https://a.example/?q="x"&r=(1) 2' },
+                        { title: 'Local file', url: 'javascript:alert(1)' },
+                    ],
+                    isError: true,
+                },
+                {
                     kind: 'artifact',
                     title: 'a.py',
                     language: 'python',

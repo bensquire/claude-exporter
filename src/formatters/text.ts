@@ -42,9 +42,14 @@ const renderBlock = (block: Block): string => {
             return delimited(label ? `Artifact: ${label}` : 'Artifact', block.content);
         }
         case 'tool_use':
-            return delimited(toolCallLabel(block.name), safeStringify(block.input));
+            return delimited(toolCallLabel(block.name, block.message), safeStringify(block.input));
         case 'tool_result':
-            return delimited(toolResultLabel(block.isError), block.text);
+            return delimited(
+                toolResultLabel(block.isError, block.name),
+                [(block.sources ?? []).map((s) => `${s.title} — ${s.url}`).join('\n'), block.text]
+                    .filter(Boolean)
+                    .join('\n\n'),
+            );
         case 'unknown':
             return delimited(unknownBlockLabel(block.type), safeStringify(block.raw));
     }

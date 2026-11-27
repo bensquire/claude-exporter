@@ -29,6 +29,7 @@ Everything runs locally in your browser. No backend, no telemetry, no third-part
 - **Attachments** — text claude.ai extracted from pasted or uploaded documents is included (collapsed); other files are listed by name.
 - **Timestamps** — each turn shows when it was sent (UTC) in Markdown, HTML and PDF.
 - **Thinking** — Claude's thinking, or its summary where claude.ai only kept a summary, in collapsible sections.
+- **Tool calls** — web searches, connectors, code execution and other tool use, each with its input and result, in collapsible sections. Pages a search returned are listed as links. Untick **Tool calls and results** in the popup to leave them out.
 - **Multiple organizations** — works whether the conversation lives in your personal account or a Team/Enterprise org.
 - **Code-fence safe** — code blocks containing backticks get a longer fence, so they don't break out.
 - **XSS-safe** — raw HTML in conversations is escaped, and `javascript:`-style links are dropped. Images are embedded as data, never loaded from a URL, so opening an export never fetches anything.
@@ -46,10 +47,10 @@ This extension is built around one principle: **your conversations never leave y
 
 ### Permissions
 
-| Permission                              | Why we need it                                                                                                                                                                                                                                                                                       |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `host_permissions: https://claude.ai/*` | Required to inject the content script into your claude.ai tab and call the claude.ai JSON API from that script using your existing session cookies. The extension touches no other origin.                                                                                                           |
-| `storage`                               | Used only via `chrome.storage.session` (in-memory, cleared when the browser closes) to hand the rendered print-ready HTML from the popup to the print-preview tab. We never write to `chrome.storage.local` or `sync`, so nothing persists across sessions and nothing syncs to your Google account. |
+| Permission                              | Why we need it                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host_permissions: https://claude.ai/*` | Required to inject the content script into your claude.ai tab and call the claude.ai JSON API from that script using your existing session cookies. The extension touches no other origin.                                                                                                                                                           |
+| `storage`                               | Used only via `chrome.storage.session` (in-memory, cleared when the browser closes) to hand the rendered print-ready HTML from the popup to the print-preview tab, and to remember the popup's **Include** choice. We never write to `chrome.storage.local` or `sync`, so nothing persists across sessions and nothing syncs to your Google account. |
 
 Permissions we deliberately do **not** request:
 
@@ -90,6 +91,8 @@ Then in Chrome:
     - **Download**: Markdown · HTML · PDF · JSON · Plain text
     - **Copy to clipboard**: Copy as Markdown · Copy formatted · Copy as HTML · Copy as plain text
 
+Under **Include**, untick **Tool calls and results** for a shorter export without them. The choice applies to every format and is remembered until you close the browser.
+
 For PDF: a new tab opens with the print preview and the system print dialog automatically appears. Choose **Save as PDF** as the destination. Chrome remembers your last destination, so subsequent prints are effectively one click.
 
 If a claude.ai tab was open before you installed the extension, the first export reloads it so the content script can load. Anything you'd typed but not sent in that tab is lost.
@@ -98,13 +101,15 @@ If a claude.ai tab was open before you installed the extension, the first export
 
 - Images are exported at claude.ai's preview size (about 1000px), not as the original upload, which claude.ai doesn't make available. Other files are listed by name; only text claude.ai extracted from documents is exported.
 - Chrome caps the data passed to the print tab at 10 MB, so a PDF of a conversation with very many images (roughly 100 or more) fails. HTML export has no such limit.
-- Thinking is included in Markdown and HTML exports (collapsed), but hidden in PDFs. When claude.ai only kept a summary of the thinking, the summary is exported, labelled "Thinking (summary)".
+- Thinking and tool calls are included in Markdown and HTML exports (collapsed), but hidden in PDFs.
+- claude.ai usually keeps only a summary of Claude's thinking, and sometimes nothing at all. The summary is exported, labelled "Thinking (summary)"; the full thinking can't be exported because claude.ai doesn't provide it.
+- Images that a tool returned are noted as `[Image]`, not embedded.
 - **Copy as HTML** copies the HTML source as text. Use **Copy formatted** to paste formatted text.
 - claude.ai's API is undocumented, so a change on their side can break exports until the extension is updated.
 
 ## How it works
 
-claude.ai exposes a cookie-authenticated JSON API at `/api/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages`. Because the extension's content script runs on the `claude.ai` origin, your browser cookies are sent automatically — no token handling, no OAuth, no storage of credentials. The org is taken from claude.ai's `lastActiveOrg` cookie, falling back to each of your other orgs in turn.
+claude.ai exposes a cookie-authenticated JSON API at `/api/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages&render_all_tools=true`. Because the extension's content script runs on the `claude.ai` origin, your browser cookies are sent automatically — no token handling, no OAuth, no storage of credentials. `render_all_tools` matters: without it, claude.ai replaces every tool call and result with a "This block is not supported on your current device yet." text block. The org is taken from claude.ai's `lastActiveOrg` cookie, falling back to each of your other orgs in turn.
 
 The full message tree is fetched and converted into a **transcript**: the active branch (using `current_leaf_message_uuid`), with each message's content blocks (text, thinking, images, artifacts, tool calls and results) and attachments in a simple, documented shape. Every output format is a pure function of that transcript. For HTML-based formats, image previews are first fetched from claude.ai (with your session, as the page itself does) and embedded.
 
@@ -128,7 +133,7 @@ src/
 │   ├── types.ts             # The Transcript format every formatter consumes
 │   ├── from-claude.ts       # claude.ai API → Transcript (the only code that knows the API shape)
 │   ├── images.ts            # Embeds image previews, given a fetcher
-│   └── options.ts           # Export options and applyOptions (thinking, attachment text)
+│   └── options.ts           # Export options and applyOptions (thinking, tool calls, attachment text)
 ├── formatters/
 │   ├── shared.ts            # Escaping, fence picking, labels, timestamps
 │   ├── markdown.ts          # Transcript → Markdown
@@ -159,7 +164,9 @@ Defined in [`src/transcript/types.ts`](./src/transcript/types.ts), and exported 
     - `thinking`: with `summarized` when only a summary was kept;
     - `image`: the file's name, and its claude.ai preview `url` and `width` / `height` when known (`dataUrl` holds the image itself only inside HTML-based exports);
     - `artifact`: the full content at that point, with `version` and `partial` (only an edit was available);
-    - `tool_use` (raw `input`), `tool_result`, and `unknown` for block types this version doesn't know.
+    - `tool_use`: the tool's `name`, its raw `input`, and claude.ai's description of the call as `message` when it gave one;
+    - `tool_result`: `text`, `isError`, the tool's `name` when known, and `sources` (`title` and `url`) for pages the tool returned, such as web search results;
+    - `unknown` for block types this version doesn't know.
 - **Attachment**: `name`, optional `size` / `mimeType` / `extractedText`, and `source` (`upload` or `file`).
 
 ### Adding an output format
@@ -211,7 +218,7 @@ Unit tests cover:
 
 - Branched conversation trees (only the active branch is rendered).
 - HTML escaping (XSS-safe rendering of arbitrary user content), including raw HTML, `javascript:` links and images inside Claude's Markdown.
-- Converting claude.ai data into the transcript, including artifact versions, thinking summaries, inline images and attachments.
+- Converting claude.ai data into the transcript, including artifact versions, thinking summaries, tool calls and their sources, inline images and attachments.
 - Embedding images: only claude.ai URLs are fetched, and only `data:image/…` ever reaches an `<img>`.
 - Each output format, including the JSON round trip and the formatted-copy fragment.
 - Finding a conversation across multiple organizations (personal + Team/Enterprise).

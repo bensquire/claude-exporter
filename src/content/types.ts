@@ -18,10 +18,14 @@ export interface ToolUseBlock {
     name?: string;
     input?: unknown;
     id?: string;
+    /** claude.ai's description of the call, e.g. "Searching the web". */
+    message?: string;
 }
 
 export interface ToolResultBlock {
     type: 'tool_result';
+    name?: string;
+    /** Items typed `text`, `knowledge` (a page: title and url), `image` or `image_gallery`. */
     content?: unknown;
     tool_use_id?: string;
     is_error?: boolean;

@@ -27,12 +27,14 @@ const jsonFetch = async <T>(path: string): Promise<T> => {
 export const getOrganizations = (): Promise<Organization[]> =>
     jsonFetch<Organization[]>('/organizations');
 
+/** Without `render_all_tools`, claude.ai replaces every tool call and result with a
+ *  "This block is not supported on your current device yet." text block. */
 export const getConversation = (
     orgUuid: string,
     conversationUuid: string,
 ): Promise<ChatConversation> =>
     jsonFetch<ChatConversation>(
-        `/organizations/${orgUuid}/chat_conversations/${conversationUuid}?tree=True&rendering_mode=messages`,
+        `/organizations/${orgUuid}/chat_conversations/${conversationUuid}?tree=True&rendering_mode=messages&render_all_tools=true`,
     );
 
 const tryGetConversation = async (

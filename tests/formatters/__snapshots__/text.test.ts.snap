@@ -26,6 +26,17 @@ Assistant
 Summary of thoughts
 [End of Thinking (summary)]
 
+[Tool call: fetch<1> — Fetching & reading]
+{
+  "url": "https://a.example"
+}
+[End of Tool call: fetch<1> — Fetching & reading]
+
+[Tool error: fetch<1>]
+A & B <page> — https://a.example/?q="x"&r=(1) 2
+Local file — javascript:alert(1)
+[End of Tool error: fetch<1>]
+
 [Artifact: a.py (v2)]
 x = 1
 
@@ -54,16 +65,18 @@ Assistant
 console.log("\`\`\`hi\`\`\`");
 [End of Artifact: Hello.js]
 
-[Tool call: web_search]
+[Tool call: web_search — Searching the web]
 {
   "query": "claude.ai api"
 }
-[End of Tool call: web_search]
+[End of Tool call: web_search — Searching the web]
 
-[Tool result]
+[Tool result: web_search]
+API <docs> [v2] — https://example.com/docs_(v2)
+
 Result line 1
 Result line 2
-[End of Tool result]
+[End of Tool result: web_search]
 
 Done — see <above>.
 "

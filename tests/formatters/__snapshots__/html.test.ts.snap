@@ -85,7 +85,6 @@ exports[`toHtml > snapshots simple conversation 1`] = `
   .markdown a { color: var(--link); }
   .code-title { font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.25rem; }
   .tool-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); margin-bottom: 0.25rem; }
-  .tool-result.is-error pre { border-left: 3px solid #dc2626; }
   .attachments ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
   .attachments .size { color: var(--fg-muted); font-size: 0.85em; }
   .attachments summary { cursor: pointer; }
@@ -106,14 +105,18 @@ exports[`toHtml > snapshots simple conversation 1`] = `
     border-radius: 6px;
   }
   .images > figure:only-child img { max-height: 32rem; }
-  details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
-  details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
+  details.collapsed { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
+  details.collapsed summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
+  details.collapsed > * + * { margin-top: 0.5rem; }
+  details.collapsed.is-error { border-left-color: #dc2626; }
+  .sources { margin: 0; padding-left: 1.25rem; font-size: 0.875rem; }
+  .sources a { color: var(--link); }
 
   @media print {
     body { padding: 0; font-size: 11pt; }
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
-    details.thinking { display: none; }
+    details.collapsed { display: none; }
     .turn-body pre {
       background: #f6f8fa;
       color: #111;
@@ -138,7 +141,7 @@ exports[`toHtml > snapshots simple conversation 1`] = `
 <section class="turn turn-assistant">
   <header class="turn-header">Assistant</header>
   <div class="turn-body">
-<details class="thinking"><summary>Thinking</summary><pre>Greeting the user.</pre></details>
+<details class="collapsed thinking"><summary>Thinking</summary><pre>Greeting the user.</pre></details>
 <div class="text markdown"><p>Hi there! How can I help?</p></div>
 
   </div>

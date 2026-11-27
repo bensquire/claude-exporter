@@ -25,6 +25,7 @@ describe('toJson', () => {
         expect(parsed.turns[1]?.blocks).toContainEqual({
             kind: 'tool_use',
             name: 'web_search',
+            message: 'Searching the web',
             input: { query: 'claude.ai api' },
         });
     });

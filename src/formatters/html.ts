@@ -1,5 +1,5 @@
 import MarkdownIt from 'markdown-it';
-import type { Block, ImageBlock, Transcript, Turn } from '../transcript/types';
+import type { Block, ImageBlock, Source, Transcript, Turn } from '../transcript/types';
 import { safeStringify } from '../util';
 import {
     artifactLabel,
@@ -7,10 +7,11 @@ import {
     formatSize,
     formatTime,
     imageLabel,
+    isWebUrl,
     roleLabel,
     thinkingLabel,
-    toolCallLabel,
-    toolResultLabel,
+    toolCallSummaryHtml,
+    toolResultSummaryHtml,
     unknownBlockLabel,
 } from './shared';
 
@@ -87,7 +88,11 @@ const renderBlock = (block: Block): string => {
                 ? `<div class="text markdown">${renderMarkdown(block.text)}</div>`
                 : `<div class="text">${paragraphs(block.text)}</div>`;
         case 'thinking':
-            return `<details class="thinking"><summary>${thinkingLabel(block.summarized)}</summary><pre>${escapeHtml(block.text)}</pre></details>`;
+            return collapsed(
+                'thinking',
+                thinkingLabel(block.summarized),
+                `<pre>${escapeHtml(block.text)}</pre>`,
+            );
         case 'image':
             return renderImage(block);
         case 'artifact': {
@@ -97,16 +102,16 @@ const renderBlock = (block: Block): string => {
             return `${title}<pre class="code" data-lang="${lang}"><code>${escapeHtml(block.content)}</code></pre>`;
         }
         case 'tool_use':
-            return labelledCode(
+            return collapsed(
                 'tool-use',
-                toolCallLabel(`<code>${escapeHtml(block.name)}</code>`),
-                safeStringify(block.input),
+                toolCallSummaryHtml(block),
+                codeBlock(safeStringify(block.input)),
             );
         case 'tool_result':
-            return labelledCode(
-                `tool-result ${block.isError ? 'is-error' : ''}`,
-                toolResultLabel(block.isError),
-                block.text,
+            return collapsed(
+                block.isError ? 'tool-result is-error' : 'tool-result',
+                toolResultSummaryHtml(block),
+                renderSources(block.sources ?? []) + (block.text && codeBlock(block.text)),
             );
         case 'unknown':
             return labelledCode(
@@ -119,7 +124,23 @@ const renderBlock = (block: Block): string => {
 
 /** `labelHtml` must already be escaped. */
 const labelledCode = (cls: string, labelHtml: string, text: string): string =>
-    `<div class="${cls}"><div class="tool-label">${labelHtml}</div><pre><code>${escapeHtml(text)}</code></pre></div>`;
+    `<div class="${cls}"><div class="tool-label">${labelHtml}</div>${codeBlock(text)}</div>`;
+
+/** Closed by default, and left out of print. `labelHtml` and `bodyHtml` must already be escaped. */
+const collapsed = (cls: string, labelHtml: string, bodyHtml: string): string =>
+    `<details class="collapsed ${cls}"><summary>${labelHtml}</summary>${bodyHtml}</details>`;
+
+const codeBlock = (text: string): string => `<pre><code>${escapeHtml(text)}</code></pre>`;
+
+const renderSources = (sources: Source[]): string => {
+    if (sources.length === 0) return '';
+    const items = sources.map((s) =>
+        isWebUrl(s.url)
+            ? `<li><a href="${escapeHtml(s.url)}">${escapeHtml(s.title)}</a></li>`
+            : `<li>${escapeHtml(s.title)}</li>`,
+    );
+    return `<ul class="sources">${items.join('')}</ul>`;
+};
 
 const renderImage = (img: ImageBlock): string => {
     // Only inline data, so opening an export never fetches anything.
@@ -235,7 +256,6 @@ const STYLES = `
   .markdown a { color: var(--link); }
   .code-title { font-size: 0.8rem; color: var(--fg-muted); margin-bottom: 0.25rem; }
   .tool-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); margin-bottom: 0.25rem; }
-  .tool-result.is-error pre { border-left: 3px solid #dc2626; }
   .attachments ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
   .attachments .size { color: var(--fg-muted); font-size: 0.85em; }
   .attachments summary { cursor: pointer; }
@@ -256,14 +276,18 @@ const STYLES = `
     border-radius: 6px;
   }
   .images > figure:only-child img { max-height: 32rem; }
-  details.thinking { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
-  details.thinking summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
+  details.collapsed { border-left: 3px solid #d4d4d8; padding-left: 0.75rem; }
+  details.collapsed summary { cursor: pointer; color: var(--fg-muted); font-size: 0.875rem; }
+  details.collapsed > * + * { margin-top: 0.5rem; }
+  details.collapsed.is-error { border-left-color: #dc2626; }
+  .sources { margin: 0; padding-left: 1.25rem; font-size: 0.875rem; }
+  .sources a { color: var(--link); }
 
   @media print {
     body { padding: 0; font-size: 11pt; }
     main { max-width: none; }
     .turn { border-color: #ccc; break-inside: avoid; page-break-inside: avoid; }
-    details.thinking { display: none; }
+    details.collapsed { display: none; }
     .turn-body pre {
       background: #f6f8fa;
       color: #111;
